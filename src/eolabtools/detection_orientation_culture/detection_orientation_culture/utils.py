@@ -1,8 +1,6 @@
-import glob
 import os
 import time
-from datetime import datetime
-from typing import Dict, , Tuple
+from typing import Dict, List, Tuple
 
 import geopandas as gpd
 import pandas as pd
@@ -13,147 +11,66 @@ import rasterio
 import shapely
 from rasterstats import zonal_stats
 from scipy.stats import iqr
-from shapely.geometry import box
+import math
 
+from shapely.geometry import (LineString, MultiLineString, Point, Polygon, box,
+                              shape)
 from sklearn.neighbors import BallTree
 
 
-def export_save_lsd(ID_PARCEL_kept_lines, centroids, kept_lines, orientations, rpg, save_lsd, start,
-                    time_orientation_worker):
-    if save_lsd:
-        df = pd.DataFrame({'geometry': kept_lines})
-        kept_lines = gpd.GeoDataFrame(df, columns=['geometry'])
-        kept_lines['ID_PARCEL'] = ID_PARCEL_kept_lines
-        kept_lines.crs = rpg.crs
+def extend_line(line, extension_distance, where='both'):
+    """
+    Extend line from both side by extension_distance
 
-        end_orientation = time.process_time() - start
-        time_orientation_worker.set(
-            time_orientation_worker.value + end_orientation)
-        print(f"done ({len(orientations)} orientation(s) found)")
-    else:
-        kept_lines = None
-        end_orientation = time.process_time() - start
-        time_orientation_worker.set(
-            time_orientation_worker.value + end_orientation)
-        print(f"done ({len(orientations)} orientation(s) found)")
-    return orientations, centroids, kept_lines
+    Parameters
+        ----------
+        line: LineString
+        extension_distance: extension distance in meters
+        where: left, right or both sides of linestring
 
+        Returns
+        -------
 
-def masking_img(img, mask_dataset, profile, rpg_expanded, start, time_inter_mask_open, win_transform, window):
-    # Mask with RPG and dataset mask
-    mask_rpg = rasterio.features.rasterize(list(rpg_expanded),
-                                           out_shape=img.shape[1:],
-                                           transform=win_transform,
-                                           fill=0,
-                                           all_touched=True,
-                                           dtype=rasterio.uint8)
-    img = np.uint8(img)
-    img = np.where(mask_dataset * mask_rpg, img, 0)
-    if window is not None:
-        profile.data["width"] = window.width
-        profile.data["height"] = window.height
-        profile.data["transform"] = win_transform
-        profile.data["dtype"] = "uint8"
-    # image monobande en entree de pyLSD
-    img = np.mean(img[0:3], axis=0)
-    end_time_inter_mask_open = time.process_time() - start
-    time_inter_mask_open.set(
-        time_inter_mask_open.value + end_time_inter_mask_open)
-    return img
+        LineString : the extend line
+    """
 
+    # Get the start and end points of the line
+    start_point = line.coords[0]
+    end_point = line.coords[-1]
+    length_line = line.length
 
-def extract_img_meta(img_path, rpg, window, patch_border):
-    with rasterio.open(img_path) as dataset:
-        print(f"Patch {os.path.basename(img_path)} ({window})...", end="")
+    if where =='both':
+        # extension at start
+        new_start = (start_point[0] + (start_point[0] - end_point[0]) / length_line * extension_distance,
+                     start_point[1] + (start_point[1] - end_point[1]) / length_line * extension_distance)
 
-        # Get new window
-        src_transform = dataset.transform
-        win_transform = rasterio.windows.transform(window, src_transform)
-        window_bb = box(*rasterio.windows.bounds(window, src_transform))
+        # extension at end
+        new_end = (end_point[0] + (end_point[0] - start_point[0]) / length_line * extension_distance,
+                   end_point[1] + (end_point[1] - start_point[1]) / length_line * extension_distance)
 
-        dataset_bb = box(*dataset.bounds)
-        rpg_expanded = rpg.buffer(1).intersection(dataset_bb)
+        extended_line = LineString([new_start, new_end])
 
-        if patch_border or not(box(*rpg_expanded.total_bounds).area < window_bb.area * 3):
-            rpg_expanded = rpg.buffer(1).intersection(window_bb)
-        else :
-            window = rasterio.windows.from_bounds(
-                *rpg_expanded.total_bounds, src_transform)
-            win_transform = rasterio.windows.transform(window, src_transform)
+    elif where == 'start':
+        # extension at start
+        new_start = (start_point[0] + (start_point[0] - end_point[0]) / length_line * extension_distance,
+                     start_point[1] + (start_point[1] - end_point[1]) / length_line * extension_distance)
 
-        profile = dataset.profile
-        mask_dataset = dataset.read_masks(1, window=window)
-        crs = dataset.crs
+        extended_line = LineString([new_start, end_point])
 
-        img = dataset.read(window=window)
-        return crs, img, mask_dataset, profile, rpg_expanded, win_transform, window, window_bb
+    elif where == 'end':
+        # extension at end
+        new_end = (end_point[0] + (end_point[0] - start_point[0]) / length_line * extension_distance,
+                   end_point[1] + (end_point[1] - start_point[1]) / length_line * extension_distance)
 
+        extended_line = LineString([start_point, new_end])
 
-def save_lsd_main(args, crs, concat):
-    kept_lines = gpd.geodataframe.GeoDataFrame(
-        pd.concat(concat), crs=crs)
-    kept_lines.crs = crs
-    kept_lines.to_file(args.out_shp.split(".")[0] + "_kept_lines.shp")
-    print("len kept_lines:", len(kept_lines))
-    del kept_lines
+    return extended_line
 
-
-def sec_to_hms(dt):
-    h = int(dt // 3600)
-    m = int((dt - h*3600) // 60)
-    s = dt - h*3600 - m*60
-
-    h = "0"+str(h) if h < 10 else h
-    m = "0"+str(m) if m < 10 else m
-    s = "0"+str(s) if s < 10 else s
-    return "{}:{}:{:.3}".format(h, m, s)
-
-
-def open_rpg_shp_file(args, start_main):
-    print("Reading RPG shapefile...", end="")
-    RPG = gpd.read_file(args.rpg)
-    print("done: {:.3} seconds".format(time.process_time() - start_main))
-    crs_rpg = RPG.crs
-    crs = {"init": "epsg:2154"}
-    inter_railroad = None
-    if args.railroad_file:
-        df_railroad = gpd.read_file(args.railroad_file)
-        df_railroad_buff = gpd.GeoDataFrame(
-            {"geometry": df_railroad.to_crs(crs).buffer(args.distance_to_the_way_max).to_list()})
-        inter_railroad = gpd.overlay(RPG.to_crs(crs), df_railroad_buff, how="intersection")
-        inter_railroad = inter_railroad["ID_PARCEL"].to_list()
-    img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
-                         ) if os.path.isdir(args.img) else args.img
-    with rasterio.open(img_dataset[0] if isinstance(img_dataset, list) else img_dataset) as dataset:
-        num_rows, num_cols = dataset.shape
-    del os.environ['PROJ_LIB']
-    return RPG, crs, df_railroad, img_dataset, inter_railroad, num_cols, num_rows
-
-def inter_railroad_process(crs, df_railroad, inter_railroad, orientations):
-    mask_inter = orientations["ID_PARCEL"].isin(inter_railroad)
-    inter_orientations = orientations.loc[mask_inter].to_crs({"init": "epsg:4326"})
-    df_railroad.crs = {'init': 'epsg:4326'}
-    df_railroad.to_crs({"init": "epsg:4326"}, inplace=True)
-    angles = azimuth_angles_with_railroad(inter_orientations, df_railroad)
-    orient_a = orientations.loc[mask_inter].reset_index(drop=True)
-    orient_a["azimuth_railroad"] = angles
-    orient_b = orientations.loc[~mask_inter].reset_index(drop=True)
-    orient_b["azimuth_railroad"] = ["None" for _ in range(len(orient_b))]
-    orientations = gpd.geodataframe.GeoDataFrame(
-        pd.concat([orient_a, orient_b], ignore_index=True), crs=crs)
-    return orientations
-
-def log_params(args):
-    args_dict = vars(args)
-    for key in args_dict:
-        print(f"{key}: {args_dict[key]}")
-    print(f"Commit hash: {get_commit_hash()}")
-    start_main = time.process_time()
-    start = datetime.now()
-    return start, start_main
 
 def get_nearest(src_points, candidates, k_neighbors=1):
-    """Find nearest neighbors for all source points from a set of candidate points"""
+    """
+    Find nearest neighbors for all source points from a set of candidate points
+    """
 
     # Create tree from the candidate points
     tree = BallTree(candidates, leaf_size=15, metric='haversine')
@@ -174,75 +91,72 @@ def get_nearest(src_points, candidates, k_neighbors=1):
     return (closest, closest_dist)
 
 
-def azimuth_angles_with_railroad(left_gdf, right_gdf):
+def transform(x):
     """
-    For each point in left_gdf, find closest point in right GeoDataFrame and return them.
+    Transform angle value to be matched to the correct cluster (angles close to 0)
 
-    NOTICE: Assumes that the input Points are in WGS84 projection (lat/lon).
+    """
+    if x < 20:
+        return 180 - x
+    else:
+        return x
+
+
+def set_str_to_all(x):
+    """
+    Used when computing the total column of statistics csv. Str types are converted to 'all'
     """
 
-    left_geom_col = left_gdf.geometry.name
-    right_geom_col = right_gdf.geometry.name
-
-    # Ensure that index in right gdf is formed of sequential numbers
-    right = right_gdf.copy().reset_index(drop=True)
-
-    splitted = []
-    for geom in right.geometry:
-        if geom.__class__ == shapely.geometry.LineString:
-            splitted += [shapely.geometry.LineString([geom.coords[i], geom.coords[i+1]]) for i in range(len(geom.coords)-1)]
-        elif geom.__class__ == shapely.geometry.MultiLineString:
-            for l in geom:
-                splitted += [shapely.geometry.LineString([l.coords[i], l.coords[i+1]]) for i in range(len(l.coords)-1)]
-
-    right = gpd.GeoDataFrame({"geometry": splitted})
-
-    # Parse coordinates from points and insert them into a numpy array as RADIANS
-    left_radians = np.array(left_gdf[left_geom_col].apply(lambda geom: (geom.centroid.x * np.pi / 180, geom.centroid.y * np.pi / 180)).to_list())
-    right_radians = np.array(right[right_geom_col].apply(lambda geom: (geom.centroid.x * np.pi / 180, geom.centroid.y * np.pi / 180)).to_list())
-
-    # Find the nearest points
-    # -----------------------
-    # closest ==> index in right_gdf that corresponds to the closest point
-    # dist ==> distance between the nearest neighbors (in meters)
-
-    closest, _ = get_nearest(src_points=left_radians, candidates=right_radians)
-
-    # Return points from right GeoDataFrame that are closest to points in left GeoDataFrame
-    closest_lines = right.loc[closest]
-
-    # Ensure that the index corresponds the one in left_gdf
-    closest_lines = closest_lines.reset_index(drop=True)
-
-    orient = pd.Series(left_gdf.geometry.to_list())
-    closest_lines = pd.Series(closest_lines.geometry.to_list())
-
-    angles = orient.combine(closest_lines, compute_angles)
-
-    return angles
+    if isinstance(x, str):
+        return 'all'
+    else:
+        return x
 
 
-def compute_angles(l_left, l_right):
-        v1 = l_left.coords
-        v2 = l_right.coords
+def compute_angles(l_left, l_right, ortho):
+    """
+    Computes the angles
+    """
 
-        v1 = np.array([v1[1][0] - v1[0][0], v1[1][1] - v1[0][1]])
-        v2 = np.array([v2[1][0] - v2[0][0], v2[1][1] - v2[0][1]])
-        cosang = np.dot(v1, v2)
-        sinang = la.norm(np.cross(v1, v2))
-        angle = np.degrees(np.arctan2(sinang, cosang))
+    v1 = l_left.coords
+    v2 = l_right.coords
 
-        if angle > 90:
-            return 180 - angle
-        else:
-            return angle
+    v1 = np.array([v1[1][0] - v1[0][0], v1[1][1] - v1[0][1]])
+    v2 = np.array([v2[1][0] - v2[0][0], v2[1][1] - v2[0][1]])
+
+    cosang = np.dot(v1, v2)
+    cosang2 = np.dot(v1, ortho)
+
+    sinang = la.norm(np.cross(v1, v2))
+
+    angle = np.degrees(np.arctan2(sinang, cosang))
+
+    magnitude1 = np.linalg.norm(v1)
+    magnitude2 = np.linalg.norm(v2)
+    cos_angle = np.degrees(np.arccos(cosang / (magnitude1 * magnitude2)))
+
+    # return angle
+
+    if cosang * cosang2 > 0:
+        return min(angle, 180 - angle)
+    else:
+        return max(angle, 180 - angle)
 
 
-def get_commit_hash() -> str:
-    repository = git.Repo(search_parent_directories=True)
-    sha = repository.head.object.hexsha
+def compute_centroids(linestring):
+    """
+    Computes the coordinates of the centroid of linestring
 
-    return sha
+    Parameters
+        ----------
+        linestring: LineString
+
+        Returns
+        -------
+        pd.Series : x coordinate and y coordinate
+
+    """
+    return pd.Series([linestring.centroid.x, linestring.centroid.y])
 
 
 def normalize_img(img, mask) -> np.array:
@@ -266,9 +180,10 @@ def normalize_img(img, mask) -> np.array:
     return np.dstack(tuple(bands))
 
 
-def create_linestring(seg, transform, width_reduction) -> Dict[shapely.geometry.linestring.LineString, float]:
+def create_linestring(seg, transform) -> Dict[shapely.geometry.linestring.LineString, float]:
     """
         Create a shapely.geometry.linestring.LineString given a rasterio.transform
+
     """
     pt1 = rasterio.transform.xy(
         transform,
@@ -280,13 +195,13 @@ def create_linestring(seg, transform, width_reduction) -> Dict[shapely.geometry.
         int(seg[3]), 
         int(seg[2])
     )
-    width = seg[4]
 
     l1 = shapely.geometry.shape({"type": "LineString", "coordinates": [pt1, pt2]})
     if not l1.is_valid:
         print("Error computing LineString. Faulty : ", l1, pt1, pt2)
 
-    return {"geometry": l1, "width": width * width_reduction}
+    return {"geometry": l1, "width": 1}
+
 
 
 def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[float, float, float, shapely.geometry.linestring.LineString]:
@@ -540,7 +455,11 @@ def split_windows(
         dataset_bb = shapely.geometry.box(*dataset.bounds)
         src_transform = dataset.transform
 
-    bb = shapely.geometry.box(*rasterio.windows.bounds(window, src_transform))
+    if window is not None:
+        bb = shapely.geometry.box(*rasterio.windows.bounds(window, src_transform))
+    else:
+        bb = dataset_bb
+    
     intersects = RPG.intersects(bb)
     within = RPG.within(dataset_bb)
 
