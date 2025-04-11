@@ -1,4 +1,4 @@
-# -- coding: utf-8 --
+# -*- coding: utf-8 -*-
 """ Night visible data registration based on OSM reference
 
 :authors: see AUTHORS file
@@ -16,7 +16,6 @@ import warnings
 
 import numpy as np
 
-import matplotlib.pyplot as plt
 import pyrosm
 import rasterio
 from rasterio import features, mask
@@ -29,7 +28,7 @@ import geopandas as gpd
 import cv2
 from math import *
 from scipy import interpolate, ndimage
-import otbApplication
+from utils import (otb_img_resample, crop_raster, remove_otb_path)
 
 def cmd_parser():
     parser = argparse.ArgumentParser()
@@ -114,8 +113,6 @@ def get_osm_data(city_name: str, bbox: shapely.geometry.polygon.Polygon = None, 
         os.environ['HTTPS_PROXY'] = "http://{}:{}@{}".format(u, p, proxy)
         ssl._create_default_https_context = ssl._create_unverified_context
 
-    #print("Available Datasets : ", pyrosm.data.available)
-
     # Download OSM data
     # if the pbf file has previously been downloaded in the directory, it will be used and not updated.  
     fp = pyrosm.get_data(city_name, directory=download_dir)
@@ -129,7 +126,6 @@ def get_osm_data(city_name: str, bbox: shapely.geometry.polygon.Polygon = None, 
     osm = pyrosm.OSM(fp, bounding_box=bbox)
 
     # Read water
-    #gdf_water = osm.get_data_by_custom_criteria(custom_filter={'natural':['water'], 'water':['river']})
     if water_file is None:
         gdf_water = osm.get_data_by_custom_criteria(custom_filter={'water':['river']})
     else:
@@ -295,8 +291,8 @@ def compute_shift(raster_a, raster_b, tile_size, max_shift_thr):
 
             print("dec_li, dec_co before filtering", dec_li, dec_co)
 
-            # déplacement du filtrage par rapport max-shift plus loin pour interpoler 
-            #les valeurs selon les voisins plutôt que de supposer un déplacement nul
+            # dï¿½placement du filtrage par rapport max-shift plus loin pour interpoler 
+            #les valeurs selon les voisins plutï¿½t que de supposer un dï¿½placement nul
 	    #if abs(dec_co) > max_shift_thr or abs(dec_li) > max_shift_thr:
             #    continue
 
@@ -414,75 +410,34 @@ def compute_displacement_grid(shape, shift_row_val, shift_col_val, window_size, 
 
 def run(path_image_de_nuit, path_out, window_size, max_shift, subsampling, rasterization = False, proxy = None, city_name = None, path_osm = None, path_water= None, roi_file = None, path_raster_osm = None, radiance_threshold = 10, path_raster_bin = None):
 
-
     raster_src = rasterio.open(path_image_de_nuit)
-    raster_src_crs = raster_src.crs
-    raster_src_transform = raster_src.transform	
-    raster_src_shape = raster_src.shape
-    raster_src_dtype = raster_src.read(1).dtype    
 
     if rasterization:
-
         """
         1. Transform night raster into binary raster
         """
-        roi_list = []   
-        if roi_file is not None:
-            roi = gpd.read_file(roi_file) 
-    
-            if roi is not None:
-                for shapes in roi.geometry:
-                    if (roi.crs != raster_src_crs):
-                        #reproject	
-                        project = pyproj.Transformer.from_proj(pyproj.Proj(init=roi.crs), pyproj.Proj(init=raster_src_crs))
-                        shapes = shapely.ops.transform(project.transform, shapes)                 
-                    roi_list.append(shapes)
-   
-                print("cropping of the input raster")
-            
-                cropped_raster, cropped_transform = mask.mask(raster_src, roi_list, crop = True)
-   
-                with rasterio.open(path_out + "/cropped_raster.tif", mode="w",driver="GTiff", height=cropped_raster.shape[1], width=cropped_raster.shape[2], count=cropped_raster.shape[0], dtype=cropped_raster.dtype, transform=cropped_transform, crs=raster_src_crs) as new_dataset:
-                    new_dataset.write(cropped_raster)
-            
-                del cropped_raster
-                raster_src = rasterio.open(path_out + "/cropped_raster.tif")	
-                raster_src_transform = raster_src.transform	
-                raster_src_shape = raster_src.shape
-                raster_src_dtype = raster_src.read(1).dtype    
-      
-        raster_bin = raster_to_bin(raster=raster_src, S = radiance_threshold)
-        
-        with rasterio.open(path_out + "/raster_bin.tif", mode="w",driver="GTiff", height=raster_src_shape[0], width=raster_src_shape[1], count=1, dtype=raster_bin.dtype, transform=raster_src_transform, crs=raster_src_crs) as new_dataset:
-            new_dataset.write(raster_bin, 1)
-	
-        """
-        2. Get OSM building vector data and convert it to raster
-        """
-        
-   
-        vector_osm_negative, vector_osm_positive = get_osm_data(city_name=city_name, bbox=box(*raster_src.bounds), epsg=raster_src_crs, download_dir=path_osm, proxy = proxy, water_file=path_water)
-        raster_osm = osm_vector_to_raster(raster_src, vector_osm_negative, vector_osm_positive, roi_list)
+        roi_list = []
+        raster_src, raster_src_crs, raster_src_dtype, raster_src_shape, raster_src_transform = crop_raster(path_out, raster_src,
+                                                                                               roi_file, roi_list)
 
-        del vector_osm_negative
-        del vector_osm_positive 
-        with rasterio.open(path_out + "/raster_osm.tif", mode="w",driver="GTiff", height=raster_src_shape[0], width=raster_src_shape[1], count=1, dtype=raster_osm.dtype, transform=raster_src_transform, crs=raster_src_crs) as new_dataset:
-            new_dataset.write(raster_osm, 1)
-        
+        raster_bin, raster_osm = night_raster_to_bin(city_name, path_osm, path_out, path_water, proxy,
+                                                     radiance_threshold, raster_src, raster_src_crs, raster_src_shape,
+                                                     raster_src_transform, roi_list)
     else:
+        raster_src, raster_src_crs, raster_src_dtype, raster_src_shape, raster_src_transform = crop_raster(path_out,
+                                                                                                           raster_src,
+                                                                                                           None,
+                                                                                                           None)
         raster_bin = rasterio.open(path_raster_bin).read(1)
         raster_osm = rasterio.open(path_raster_osm).read(1)	   
 
-    
     """
     3. Compute colocalisation error between raster and osm locally for each tile
     """
-    
     shift_row_val, shift_col_val, shift_row_pos, shift_col_pos, tiles, shift_mask, filtered_shift_mask = compute_shift(raster_a=raster_bin,
                                                                                raster_b=raster_osm,
                                                                                tile_size=window_size, max_shift_thr = max_shift)
-    del raster_bin
-    del raster_osm    
+    del raster_bin, raster_osm
 
     # Check & Create Shift result folder
     out_ext = "/Shifts_WS" + str(window_size) + "px/"
@@ -496,8 +451,7 @@ def run(path_image_de_nuit, path_out, window_size, max_shift, subsampling, raste
     with rasterio.open(path_out_shift + "filtered_shift_mask_MS"+str(max_shift)+"px.tif", mode="w",driver="GTiff", height=raster_src_shape[0], width=raster_src_shape[1], count=1, dtype=shift_mask.dtype, transform=raster_src_transform, crs=raster_src_crs) as new_dataset:
             new_dataset.write(filtered_shift_mask, 1)
 
-    del shift_mask
-    del filtered_shift_mask
+    del shift_mask, filtered_shift_mask
 	    
     #  Save np array and Plot Quiver
     np.savetxt(path_out_shift + "Decalage_en_ligne_valeur.csv", shift_row_val, fmt='%i', delimiter=",")
@@ -505,20 +459,17 @@ def run(path_image_de_nuit, path_out, window_size, max_shift, subsampling, raste
     np.savetxt(path_out_shift + "Decalage_en_ligne_position.csv", shift_row_pos, fmt='%i', delimiter=",")
     np.savetxt(path_out_shift + "Decalage_en_colonne_position.csv", shift_col_pos, fmt='%i', delimiter=",")
 
-    del shift_row_pos
-    del shift_col_pos
+    del shift_row_pos, shift_col_pos
    
     """
     4. Compute displacement grid (size of raster_src)
     """
     disp_grid = compute_displacement_grid(raster_src_shape, shift_row_val, shift_col_val, window_size, max_shift, subsampling) 
 
-    del shift_row_val
-    del shift_col_val
+    del shift_row_val, shift_col_val
 
     with rasterio.open(path_out_shift + "DisplacementGrid_MS"+ str(max_shift) + "px_SubS"+ str(subsampling) + ".tif", mode="w",driver="GTiff", height=raster_src_shape[0], width=raster_src_shape[1], count=2, dtype='int16', nodata = -9999.0, transform=raster_src_transform, crs=raster_src_crs) as new_dataset:
             new_dataset.write(disp_grid)
-
       
     """
     5. Apply Shift on the cropped image via OTB GridBasedImageResampling. If the input image is RGB, the shifted output is in total radiance
@@ -529,45 +480,43 @@ def run(path_image_de_nuit, path_out, window_size, max_shift, subsampling, raste
     otb_displacementgrid_path = path_out_shift + "OTB_DisplacementGrid_MS"+ str(max_shift) + "px_SubS"+ str(subsampling) + ".tif"
     otb_output_path = path_out_shift + "OTB_shifted_cropped_raster.tif"
     with rasterio.open(otb_displacementgrid_path, mode="w",driver="GTiff", height=raster_src_shape[0], width=raster_src_shape[1], count=2, dtype='int16', nodata = -9999.0, crs=raster_src_crs) as new_dataset:
-            new_dataset.write(disp_grid) 
-    del disp_grid
+            new_dataset.write(disp_grid)
 
     with rasterio.open(otb_input_path, mode="w",driver="GTiff", height=raster_src_shape[0], width=raster_src_shape[1], count=1, dtype=raster_src_dtype, crs=raster_src_crs) as new_dataset:
             new_dataset.write(raster_src.read(1),1)
 
-    del raster_src
+    del disp_grid, raster_src
 
-    app = otbApplication.Registry.CreateApplication("GridBasedImageResampling")
-
-    app.SetParameterString("io.in", otb_input_path)
-    app.SetParameterString("io.out", otb_output_path)
-    #app.SetParameterOutputImagePixelType("io.out", 1)
-    app.SetParameterString("grid.in", otb_displacementgrid_path)
-    app.SetParameterInt("out.sizex", raster_src_shape[1])
-    app.SetParameterInt("out.sizey", raster_src_shape[0])
-    app.SetParameterString("grid.type","def")
-    app.SetParameterString("interpolator","linear")
-    app.ExecuteAndWriteOutput()
+    otb_img_resample(otb_displacementgrid_path, otb_input_path, otb_output_path, raster_src_shape)
 
     otb_shifted_cropped_raster = (rasterio.open(otb_output_path)).read(1)
     with rasterio.open(path_out_shift + "shifted_cropped_raster_MS"+ str(max_shift) + "px_SubS"+ str(subsampling) + ".tif", mode="w",driver="GTiff", height=raster_src_shape[0], width=raster_src_shape[1], count=1, dtype=raster_src_dtype, transform=raster_src_transform, crs=raster_src_crs) as new_dataset:
             new_dataset.write(otb_shifted_cropped_raster,1) 
 
-    del otb_shifted_cropped_raster	    
-    if os.path.exists(otb_input_path):
-        os.remove(otb_input_path)
-    else:
-        print("The file does not exist :", otb_input_path)
+    del otb_shifted_cropped_raster
+    remove_otb_path(otb_displacementgrid_path, otb_input_path, otb_output_path)
 
-    if os.path.exists(otb_output_path):
-        os.remove(otb_output_path)
-    else:
-        print("The file does not exist :", otb_output_path)   
+def night_raster_to_bin(city_name, path_osm, path_out, path_water, proxy, radiance_threshold, raster_src,
+                        raster_src_crs, raster_src_shape, raster_src_transform, roi_list):
+    raster_bin = raster_to_bin(raster=raster_src, S=radiance_threshold)
+    with rasterio.open(path_out + "/raster_bin.tif", mode="w", driver="GTiff", height=raster_src_shape[0],
+                       width=raster_src_shape[1], count=1, dtype=raster_bin.dtype, transform=raster_src_transform,
+                       crs=raster_src_crs) as new_dataset:
+        new_dataset.write(raster_bin, 1)
+    """
+        2. Get OSM building vector data and convert it to raster
+        """
+    vector_osm_negative, vector_osm_positive = get_osm_data(city_name=city_name, bbox=box(*raster_src.bounds),
+                                                            epsg=raster_src_crs, download_dir=path_osm, proxy=proxy,
+                                                            water_file=path_water)
+    raster_osm = osm_vector_to_raster(raster_src, vector_osm_negative, vector_osm_positive, roi_list)
+    del vector_osm_negative, vector_osm_positive
+    with rasterio.open(path_out + "/raster_osm.tif", mode="w", driver="GTiff", height=raster_src_shape[0],
+                       width=raster_src_shape[1], count=1, dtype=raster_osm.dtype, transform=raster_src_transform,
+                       crs=raster_src_crs) as new_dataset:
+        new_dataset.write(raster_osm, 1)
+    return raster_bin, raster_osm
 
-    if os.path.exists(otb_displacementgrid_path):
-        os.remove(otb_displacementgrid_path)
-    else:
-        print("The file does not exist :", otb_displacementgrid_path) 	
 
 if __name__ == '__main__':
 

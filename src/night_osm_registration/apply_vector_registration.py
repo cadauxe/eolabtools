@@ -1,4 +1,4 @@
-# -- coding: utf-8 --
+# -*- coding: utf-8 -*-
 """ Apply a displacement grid on a shapefile (geometry of type Point)
 
 :authors: see AUTHORS file

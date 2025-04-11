@@ -1,6 +1,8 @@
+import glob
 import os
 import time
-from typing import Dict, List, Tuple
+from datetime import datetime
+from typing import Dict, , Tuple
 
 import geopandas as gpd
 import pandas as pd
@@ -11,9 +13,144 @@ import rasterio
 import shapely
 from rasterstats import zonal_stats
 from scipy.stats import iqr
+from shapely.geometry import box
 
 from sklearn.neighbors import BallTree
 
+
+def export_save_lsd(ID_PARCEL_kept_lines, centroids, kept_lines, orientations, rpg, save_lsd, start,
+                    time_orientation_worker):
+    if save_lsd:
+        df = pd.DataFrame({'geometry': kept_lines})
+        kept_lines = gpd.GeoDataFrame(df, columns=['geometry'])
+        kept_lines['ID_PARCEL'] = ID_PARCEL_kept_lines
+        kept_lines.crs = rpg.crs
+
+        end_orientation = time.process_time() - start
+        time_orientation_worker.set(
+            time_orientation_worker.value + end_orientation)
+        print(f"done ({len(orientations)} orientation(s) found)")
+    else:
+        kept_lines = None
+        end_orientation = time.process_time() - start
+        time_orientation_worker.set(
+            time_orientation_worker.value + end_orientation)
+        print(f"done ({len(orientations)} orientation(s) found)")
+    return orientations, centroids, kept_lines
+
+
+def masking_img(img, mask_dataset, profile, rpg_expanded, start, time_inter_mask_open, win_transform, window):
+    # Mask with RPG and dataset mask
+    mask_rpg = rasterio.features.rasterize(list(rpg_expanded),
+                                           out_shape=img.shape[1:],
+                                           transform=win_transform,
+                                           fill=0,
+                                           all_touched=True,
+                                           dtype=rasterio.uint8)
+    img = np.uint8(img)
+    img = np.where(mask_dataset * mask_rpg, img, 0)
+    if window is not None:
+        profile.data["width"] = window.width
+        profile.data["height"] = window.height
+        profile.data["transform"] = win_transform
+        profile.data["dtype"] = "uint8"
+    # image monobande en entree de pyLSD
+    img = np.mean(img[0:3], axis=0)
+    end_time_inter_mask_open = time.process_time() - start
+    time_inter_mask_open.set(
+        time_inter_mask_open.value + end_time_inter_mask_open)
+    return img
+
+
+def extract_img_meta(img_path, rpg, window, patch_border):
+    with rasterio.open(img_path) as dataset:
+        print(f"Patch {os.path.basename(img_path)} ({window})...", end="")
+
+        # Get new window
+        src_transform = dataset.transform
+        win_transform = rasterio.windows.transform(window, src_transform)
+        window_bb = box(*rasterio.windows.bounds(window, src_transform))
+
+        dataset_bb = box(*dataset.bounds)
+        rpg_expanded = rpg.buffer(1).intersection(dataset_bb)
+
+        if patch_border or not(box(*rpg_expanded.total_bounds).area < window_bb.area * 3):
+            rpg_expanded = rpg.buffer(1).intersection(window_bb)
+        else :
+            window = rasterio.windows.from_bounds(
+                *rpg_expanded.total_bounds, src_transform)
+            win_transform = rasterio.windows.transform(window, src_transform)
+
+        profile = dataset.profile
+        mask_dataset = dataset.read_masks(1, window=window)
+        crs = dataset.crs
+
+        img = dataset.read(window=window)
+        return crs, img, mask_dataset, profile, rpg_expanded, win_transform, window, window_bb
+
+
+def save_lsd_main(args, crs, concat):
+    kept_lines = gpd.geodataframe.GeoDataFrame(
+        pd.concat(concat), crs=crs)
+    kept_lines.crs = crs
+    kept_lines.to_file(args.out_shp.split(".")[0] + "_kept_lines.shp")
+    print("len kept_lines:", len(kept_lines))
+    del kept_lines
+
+
+def sec_to_hms(dt):
+    h = int(dt // 3600)
+    m = int((dt - h*3600) // 60)
+    s = dt - h*3600 - m*60
+
+    h = "0"+str(h) if h < 10 else h
+    m = "0"+str(m) if m < 10 else m
+    s = "0"+str(s) if s < 10 else s
+    return "{}:{}:{:.3}".format(h, m, s)
+
+
+def open_rpg_shp_file(args, start_main):
+    print("Reading RPG shapefile...", end="")
+    RPG = gpd.read_file(args.rpg)
+    print("done: {:.3} seconds".format(time.process_time() - start_main))
+    crs_rpg = RPG.crs
+    crs = {"init": "epsg:2154"}
+    inter_railroad = None
+    if args.railroad_file:
+        df_railroad = gpd.read_file(args.railroad_file)
+        df_railroad_buff = gpd.GeoDataFrame(
+            {"geometry": df_railroad.to_crs(crs).buffer(args.distance_to_the_way_max).to_list()})
+        inter_railroad = gpd.overlay(RPG.to_crs(crs), df_railroad_buff, how="intersection")
+        inter_railroad = inter_railroad["ID_PARCEL"].to_list()
+    img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
+                         ) if os.path.isdir(args.img) else args.img
+    with rasterio.open(img_dataset[0] if isinstance(img_dataset, list) else img_dataset) as dataset:
+        num_rows, num_cols = dataset.shape
+    del os.environ['PROJ_LIB']
+    return RPG, crs, df_railroad, img_dataset, inter_railroad, num_cols, num_rows
+
+def inter_railroad_process(crs, df_railroad, inter_railroad, orientations):
+    mask_inter = orientations["ID_PARCEL"].isin(inter_railroad)
+    inter_orientations = orientations.loc[mask_inter].to_crs({"init": "epsg:4326"})
+    df_railroad.crs = {'init': 'epsg:4326'}
+    df_railroad.to_crs({"init": "epsg:4326"}, inplace=True)
+    angles = azimuth_angles_with_railroad(inter_orientations, df_railroad)
+    orient_a = orientations.loc[mask_inter].reset_index(drop=True)
+    orient_a["azimuth_railroad"] = angles
+    orient_b = orientations.loc[~mask_inter].reset_index(drop=True)
+    orient_b["azimuth_railroad"] = ["None" for _ in range(len(orient_b))]
+    orientations = gpd.geodataframe.GeoDataFrame(
+        pd.concat([orient_a, orient_b], ignore_index=True), crs=crs)
+    return orientations
+
+def log_params(args):
+    args_dict = vars(args)
+    for key in args_dict:
+        print(f"{key}: {args_dict[key]}")
+    print(f"Commit hash: {get_commit_hash()}")
+    start_main = time.process_time()
+    start = datetime.now()
+    return start, start_main
 
 def get_nearest(src_points, candidates, k_neighbors=1):
     """Find nearest neighbors for all source points from a set of candidate points"""

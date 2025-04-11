@@ -1,36 +1,29 @@
 import argparse
 import concurrent.futures
 import csv
-import glob
 import math
-import os
 import statistics
 import time
 from datetime import datetime
 from functools import partial
 from multiprocessing import Manager
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import geopandas as gpd
-import git
 import numpy as np
-import numpy.linalg as la
 import pandas as pd
 import rasterio
 import rasterio.mask
 import shapely
 from pylsd import lsd
-from rasterio.plot import reshape_as_image, reshape_as_raster
 from rasterio.windows import Window
-from rasterstats import zonal_stats
-from scipy.stats import iqr
-from shapely.geometry import (LineString, MultiLineString, Point, Polygon, box,
-                              shape)
+from shapely.geometry import (LineString, MultiLineString, Polygon)
 
-from utils import (azimuth_angles_with_railroad, compute_angles,
-                   create_linestring, filter_segments, get_commit_hash,
-                   get_mean_slope_aspect, get_norm_linestring, normalize_img,
-                   split_img_borders, split_img_dataset, split_windows)
+from utils import (export_save_lsd, compute_angles,
+                   create_linestring, filter_segments, masking_img,
+                   get_mean_slope_aspect, extract_img_meta, normalize_img,
+                   split_img_borders, split_img_dataset, split_windows, save_lsd_main,
+                   sec_to_hms, open_rpg_shp_file, inter_railroad_process, log_params)
 
 
 def detect_multiple_orientations(
@@ -362,7 +355,9 @@ def compute_orientation(
     delta_calculate_orientation = time.process_time() - delta_calculate_orientation
     time_calculate_orientation.set(
         time_calculate_orientation.value + delta_calculate_orientation)
-    return orientation, centroid, code_group, code_cultu, nb_lines_used, nb_orientations, mean_len_lines, std_orient_x, std_orient_y, value_mean_slope, value_mean_aspect, value_calc_aspect, indic_orient, ID_PARCEL, kept_lines
+    return (orientation, centroid, code_group, code_cultu, nb_lines_used,
+            nb_orientations, mean_len_lines, std_orient_x, std_orient_y, value_mean_slope,
+            value_mean_aspect, value_calc_aspect, indic_orient, ID_PARCEL, kept_lines)
 
 
 def orientation_worker(
@@ -409,107 +404,26 @@ def orientation_worker(
         gpd.GeoDataFrame
             a gpd.GeoDataFrame containing the segments used to compute the orientations
     """
-
     start = time.process_time()
 
     img_path, rpg, window = data
-
-    with rasterio.open(img_path) as dataset:
-        print(f"Patch {os.path.basename(img_path)} ({window})...", end="")
-
-        # Get the polygons intersected by the window and add expansion
-        dataset_bb = box(*dataset.bounds)
-        rpg_expanded = rpg.buffer(1).intersection(dataset_bb)
-
-        # Get new window
-        src_transform = dataset.transform
-        win_transform = rasterio.windows.transform(window, src_transform)
-        window_bb = box(*rasterio.windows.bounds(window, src_transform))
-        # Check if the new window is not too big
-        if box(*rpg_expanded.total_bounds).area < window_bb.area * 3:
-            window = rasterio.windows.from_bounds(
-                *rpg_expanded.total_bounds, src_transform)
-            win_transform = rasterio.windows.transform(window, src_transform)
-        else:
-            rpg_expanded = rpg.buffer(1).intersection(window_bb)
-
-        profile = dataset.profile
-        mask_dataset = dataset.read_masks(1, window=window)
-        crs = dataset.crs
-
-        img = dataset.read(window=window)
+    crs, img, mask_dataset, profile, rpg_expanded, win_transform, window, window_bb = extract_img_meta(img_path, rpg, window, False)
 
     if normalize:
         img = normalize_img(img, mask_dataset)
 
-    # Mask with RPG and dataset mask
-    mask_rpg = rasterio.features.rasterize(list(rpg_expanded),
-                                           out_shape=img.shape[1:],
-                                           transform=win_transform,
-                                           fill=0,
-                                           all_touched=True,
-                                           dtype=rasterio.uint8)
-    img = np.uint8(img)
-    img = np.where(mask_dataset*mask_rpg, img, 0)
-
-    if window is not None:
-        profile.data["width"] = window.width
-        profile.data["height"] = window.height
-        profile.data["transform"] = win_transform
-        profile.data["dtype"] = "uint8"
-
-    # image monobande en entree de pyLSD
-    img = np.mean(img[0:3], axis=0)
-
-    end_time_inter_mask_open = time.process_time() - start
-    time_inter_mask_open.set(
-        time_inter_mask_open.value + end_time_inter_mask_open)
+    img = masking_img(img, mask_dataset, profile, rpg_expanded, start, time_inter_mask_open, win_transform, window)
 
     # Detect segments with LSD
-    start_time_lsd = time.process_time()
-    segments = lsd(
-        np.asarray(img),
-        scale=lsd_params["scale"],
-        sigma_scale=lsd_params["sigma_scale"],
-        quant=lsd_params["quant"],
-        ang_th=lsd_params["ang_th"],
-        eps=lsd_params["eps"],
-        density_th=lsd_params["density_th"],
-        n_bins=lsd_params["n_bins"])
+    LSD = segment_detect(crs, img, lsd_params, profile, rpg, time_lsd)
 
-    segments = list(map(partial(
-        create_linestring,
-        transform=profile["transform"],
-        width_reduction=lsd_params["width_reduction"]),
-        segments
-    ))
+    orientations, centroids, list_code_group, list_code_cultu, nb_lines_used, nb_orientations = ([] for i in range(6))
+    mean_len_lines, std_orientation_x, std_orientation_y, mean_slope_list, mean_aspect_list = ([] for i in range(5))
+    calc_aspect, indic_orient, list_ID_PARCEL, kept_lines, ID_PARCEL_kept_lines = ([] for i in range(5))
 
-    LSD = gpd.GeoDataFrame(segments, crs=crs)
-    LSD.crs = rpg.crs
-
-    lsd_dur = time.process_time() - start_time_lsd
-    time_lsd.set(time_lsd.value + lsd_dur)
-
-    orientations = []
-    centroids = []
-    list_code_group = []
-    list_code_cultu = []
-    nb_lines_used = []
-    nb_orientations = []
-    mean_len_lines = []
-    std_orientation_x = []
-    std_orientation_y = []
-    mean_slope_list = []
-    mean_aspect_list = []
-    calc_aspect = []
-    indic_orient = []
-    list_ID_PARCEL = []
-    kept_lines = []
-    ID_PARCEL_kept_lines = []
     # Compute orientations from the detected segments
     for ind in list(rpg.index):
-        r = compute_orientation(
-            ind,
+        r = compute_orientation(ind,
             rpg,
             LSD,
             slope,
@@ -567,23 +481,31 @@ def orientation_worker(
     orientations.crs = rpg.crs
 
     # Export and save the segments kept to compute the orientations
-    if save_lsd:
-        df = pd.DataFrame({'geometry': kept_lines})
-        kept_lines = gpd.GeoDataFrame(df, columns=['geometry'])
-        kept_lines['ID_PARCEL'] = ID_PARCEL_kept_lines
-        kept_lines.crs = rpg.crs
+    return export_save_lsd(ID_PARCEL_kept_lines, centroids, kept_lines, orientations, rpg, save_lsd, start,
+                           time_orientation_worker)
 
-        end_orientation = time.process_time() - start
-        time_orientation_worker.set(
-            time_orientation_worker.value + end_orientation)
-        print(f"done ({len(orientations)} orientation(s) found)")
-        return orientations, centroids, kept_lines
-    else:
-        end_orientation = time.process_time() - start
-        time_orientation_worker.set(
-            time_orientation_worker.value + end_orientation)
-        print(f"done ({len(orientations)} orientation(s) found)")
-        return orientations, centroids
+def segment_detect(crs, img, lsd_params, profile, rpg, time_lsd):
+    start_time_lsd = time.process_time()
+    segments = lsd(
+        np.asarray(img),
+        scale=lsd_params["scale"],
+        sigma_scale=lsd_params["sigma_scale"],
+        quant=lsd_params["quant"],
+        ang_th=lsd_params["ang_th"],
+        eps=lsd_params["eps"],
+        density_th=lsd_params["density_th"],
+        n_bins=lsd_params["n_bins"])
+    segments = list(map(partial(
+        create_linestring,
+        transform=profile["transform"],
+        width_reduction=lsd_params["width_reduction"]),
+        segments
+    ))
+    LSD = gpd.GeoDataFrame(segments, crs=crs)
+    LSD.crs = rpg.crs
+    lsd_dur = time.process_time() - start_time_lsd
+    time_lsd.set(time_lsd.value + lsd_dur)
+    return LSD
 
 
 def get_on_patch_border_lines(
@@ -609,23 +531,7 @@ def get_on_patch_border_lines(
 
     start = time.process_time()
 
-    rpg_expanded = rpg.buffer(1)
-    with rasterio.open(img_path) as dataset:
-        print(f"Patch {os.path.basename(img_path)} (borders)...", end="")
-        profile = dataset.profile
-
-        # Get new window
-        src_transform = dataset.transform
-        win_transform = rasterio.windows.transform(window, src_transform)
-        window_bb = box(*rasterio.windows.bounds(window, src_transform))
-
-        rpg_expanded = rpg.buffer(1).intersection(window_bb)
-
-        profile = dataset.profile
-        mask_dataset = dataset.read_masks(1, window=window)
-        crs = dataset.crs
-
-        img = dataset.read(window=window)
+    crs, img, mask_dataset, profile, rpg_expanded, win_transform, window, _ = extract_img_meta(img_path, rpg, window, False)
 
     if normalize:
         img = normalize_img(img, mask_dataset)
@@ -841,22 +747,9 @@ def handle_on_patch_border_crops(
             chunksize=max([1, len(kept_lines) // nb_cores])
         ))
 
-    orientations = []
-    centroids = []
-    list_code_group = []
-    list_code_cultu = []
-    nb_lines_used = []
-    nb_orientations = []
-    mean_len_lines = []
-    std_orientation_x = []
-    std_orientation_y = []
-    mean_slope_list = []
-    mean_aspect_list = []
-    calc_aspect = []
-    indic_orient = []
-    list_ID_PARCEL = []
-    kept_lines = []
-    ID_PARCEL_kept_lines = []
+    orientations, centroids, list_code_group, list_code_cultu, nb_lines_used, nb_orientations = ([] for i in range(6))
+    mean_len_lines, std_orientation_x, std_orientation_y, mean_slope_list, mean_aspect_list = ([] for i in range(5))
+    calc_aspect, indic_orient, list_ID_PARCEL, kept_lines, ID_PARCEL_kept_lines = ([] for i in range(5))
     for r in res:
         if r is not None:
             orientations += r[0]
@@ -899,24 +792,8 @@ def handle_on_patch_border_crops(
     orientations['INDIC_ORIENTATION'] = [f"{num:.3f}" for num in indic_orient]
     orientations.crs = rpg.crs
 
-    if save_lsd:
-        df = pd.DataFrame({'geometry': kept_lines})
-        kept_lines = gpd.GeoDataFrame(df, columns=['geometry'])
-        kept_lines['ID_PARCEL'] = ID_PARCEL_kept_lines
-        kept_lines.crs = rpg.crs
-
-        end_orientation = time.process_time() - start
-        time_orientation_worker.set(
-            time_orientation_worker.value + end_orientation)
-        print(f"done ({len(orientations)} orientation(s) found)")
-    else:
-        kept_lines = None
-        end_orientation = time.process_time() - start
-        time_orientation_worker.set(
-            time_orientation_worker.value + end_orientation)
-        print(f"done ({len(orientations)} orientation(s) found)")
-
-    return orientations, conc_centroids, kept_lines
+    return export_save_lsd(ID_PARCEL_kept_lines, None, kept_lines, orientations, rpg, save_lsd, start,
+                    time_orientation_worker)
 
 
 def get_rpg_patches(
@@ -1017,36 +894,10 @@ def get_rpg_patches(
 def main(args):
 
     # Log params
-    args_dict = vars(args)
-    for key in args_dict:
-        print(f"{key}: {args_dict[key]}")
-
-    print(f"Commit hash: {get_commit_hash()}")
-    start_main = time.process_time()
-    start = datetime.now()
+    start, start_main = log_params(args)
 
     # Open rpg shapefile
-    print("Reading RPG shapefile...", end="")
-    RPG = gpd.read_file(args.rpg)
-    print("done: {:.3} seconds".format(time.process_time() - start_main))
-    crs_rpg = RPG.crs
-    crs = {"init": "epsg:2154"}
-
-    inter_railroad = None
-    if args.railroad_file:
-        df_railroad = gpd.read_file(args.railroad_file)
-        df_railroad_buff = gpd.GeoDataFrame(
-            {"geometry": df_railroad.to_crs(crs).buffer(args.distance_to_the_way_max).to_list()})
-        inter_railroad = gpd.overlay(RPG.to_crs(crs), df_railroad_buff, how="intersection")
-        inter_railroad = inter_railroad["ID_PARCEL"].to_list()
-
-    img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
-                         ) if os.path.isdir(args.img) else args.img
-
-    with rasterio.open(img_dataset[0] if isinstance(img_dataset, list) else img_dataset) as dataset:
-        num_rows, num_cols = dataset.shape
-
-    del os.environ['PROJ_LIB']
+    RPG, crs, df_railroad, img_dataset, inter_railroad, num_cols, num_rows = open_rpg_shp_file(args, start_main)
 
     lsd_params = {
         "min_nb_line_per_parcelle": args.min_nb_line_per_parcelle,
@@ -1071,63 +922,13 @@ def main(args):
     time_inter_mask_open = manager.Value("time_inter_mask_open", 0.)
     parcel_ids_processed = manager.list()
 
-    len_RPG = len(RPG)
-
     # Split RPG into patches
-    list_rpg_patches = get_rpg_patches(
-        img_dataset,
-        RPG,
-        time_split,
-        args.nb_cores,
-        patch_size=args.patch_size
-    )
-
-    with concurrent.futures.ProcessPoolExecutor(max_workers=args.nb_cores) as executor:
-
-        list_gdf = list(executor.map(
-            partial(orientation_worker,
-                    normalize=args.normalize,
-                    parcel_ids_processed=parcel_ids_processed,
-                    lsd_params=lsd_params,
-                    slope=args.slope,
-                    aspect=args.aspect,
-                    area_min=args.area_min,
-                    time_inter_mask_open=time_inter_mask_open,
-                    time_slope_aspect=time_slope_aspect,
-                    time_lsd=time_lsd,
-                    time_orientation_worker=time_orientation_worker,
-                    time_calculate_orientation=time_calculate_orientation,
-                    save_lsd=args.save_lsd,
-                    verbose=args.verbose),
-            list_rpg_patches,
-            chunksize=max([1, len(img_dataset) // args.nb_cores])
-        ))
-
-    del list_rpg_patches
-
-    start_concat = time.process_time()
-    orientations = gpd.geodataframe.GeoDataFrame(
-        pd.concat([r[0] for r in list_gdf]), crs=crs)
-    orientations.crs = crs
-    orientations.to_file(args.out_shp.split(".")[0] + "_orientations.shp")
-    print("len orientations:", len(orientations))
-    del orientations
-
-    centroids = gpd.geodataframe.GeoDataFrame(
-        pd.concat([r[1] for r in list_gdf]), crs=crs)
-    centroids.crs = crs
-    centroids.to_file(args.out_shp.split(".")[0] + "_centroids.shp")
-    print("len centroids:", len(centroids))
-    del centroids
+    list_gdf, start_concat = split_rpg(RPG, args, crs, img_dataset, lsd_params, parcel_ids_processed,
+                                       time_calculate_orientation, time_inter_mask_open, time_lsd,
+                                       time_orientation_worker, time_slope_aspect, time_split)
 
     if args.save_lsd:
-        kept_lines = gpd.geodataframe.GeoDataFrame(
-            pd.concat([r[2] for r in list_gdf]), crs=crs)
-        kept_lines.crs = crs
-        kept_lines.to_file(args.out_shp.split(".")[0] + "_kept_lines.shp")
-        print("len kept_lines:", len(kept_lines))
-
-        del kept_lines
+        save_lsd_main(args, crs, [r[2] for r in list_gdf])
 
     print("Time to concatenate results: {:.3}s".format(
         time.process_time() - start_concat))
@@ -1165,20 +966,7 @@ def main(args):
             args.verbose
         )
 
-    crs_rpg = RPG.crs
-
-    del list_on_border
-    del RPG
-
-    def sec_to_hms(dt):
-        h = int(dt // 3600)
-        m = int((dt - h*3600) // 60)
-        s = dt - h*3600 - m*60
-
-        h = "0"+str(h) if h < 10 else h
-        m = "0"+str(m) if m < 10 else m
-        s = "0"+str(s) if s < 10 else s
-        return "{}:{}:{:.3}".format(h, m, s)
+    del list_on_border, RPG
 
     start_concat = time.process_time()
     orientations = gpd.read_file(args.out_shp.split(".")[
@@ -1188,27 +976,12 @@ def main(args):
 
     orientations.crs = crs
     if inter_railroad is not None:
-        mask_inter = orientations["ID_PARCEL"].isin(inter_railroad)
-
-        inter_orientations = orientations.loc[mask_inter].to_crs({"init": "epsg:4326"})
-
-        df_railroad.crs = {'init' :'epsg:4326'}
-        df_railroad.to_crs({"init": "epsg:4326"}, inplace=True)
-        angles = azimuth_angles_with_railroad(inter_orientations, df_railroad)
-
-        orient_a = orientations.loc[mask_inter].reset_index(drop=True)
-        orient_a["azimuth_railroad"] = angles
-        orient_b = orientations.loc[~mask_inter].reset_index(drop=True)
-        orient_b["azimuth_railroad"] = ["None" for _ in range(len(orient_b))]
-
-        orientations = gpd.geodataframe.GeoDataFrame(
-            pd.concat([orient_a, orient_b], ignore_index=True), crs=crs)
+        orientations = inter_railroad_process(crs, df_railroad, inter_railroad, orientations)
 
     orientations.to_crs(crs, inplace=True)
     orientations.to_file(args.out_shp.split(".")[0] + "_orientations.shp")
     len_orientation = len(orientations)
     print("len orientations:", len_orientation)
-    del orientations
 
     centroids = gpd.read_file(args.out_shp.split(".")[0] + "_centroids.shp")
     centroids = gpd.geodataframe.GeoDataFrame(
@@ -1216,16 +989,11 @@ def main(args):
     centroids.to_crs(crs, inplace=True)
     centroids.to_file(args.out_shp.split(".")[0] + "_centroids.shp")
     print("len centroids:", len(centroids))
-    del centroids
+    del orientations, centroids
 
     if args.save_lsd:
         kept_lines = gpd.read_file(args.out_shp.split(".")[0] + "_kept_lines.shp")
-        kept_lines = gpd.geodataframe.GeoDataFrame(
-            pd.concat([kept_lines, on_border_lines]), crs=crs)
-        kept_lines.to_crs(crs, inplace=True)
-        kept_lines.to_file(args.out_shp.split(".")[0] + "_kept_lines.shp")
-        print("len kept_lines:", len(kept_lines))
-        del kept_lines
+        save_lsd_main(args, crs, [kept_lines, on_border_lines])
 
     print("Time to concatenate results: {:.3}s".format(
         time.process_time() - start_concat))
@@ -1251,30 +1019,80 @@ def main(args):
                           time_inter_mask_open.value / args.nb_cores]
                          )
                      )
-    data += [len_orientation, len_RPG,
-             f"{int(100*len_orientation/len_RPG)}%"]
+    data += [len_orientation, len(RPG),
+             f"{int(100*len_orientation/len(RPG))}%"]
     header = ["all", "main", "worker", "slope_aspect", "lsd", "img_processing",
               "calculate_orientation", "num_orientations", "RPG_length", "ratio"]
 
     # Save time logs to csv
+    timelogs_to_csv(args, data, data_norm, header, img_dataset, len_orientation, num_cols, num_rows, start, time_lsd,
+                    time_orientation_worker)
+
+
+def split_rpg(RPG, args, crs, img_dataset, lsd_params, parcel_ids_processed, time_calculate_orientation,
+              time_inter_mask_open, time_lsd, time_orientation_worker, time_slope_aspect, time_split):
+    list_rpg_patches = get_rpg_patches(
+        img_dataset,
+        RPG,
+        time_split,
+        args.nb_cores,
+        patch_size=args.patch_size
+    )
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.nb_cores) as executor:
+        list_gdf = list(executor.map(
+            partial(orientation_worker,
+                    normalize=args.normalize,
+                    parcel_ids_processed=parcel_ids_processed,
+                    lsd_params=lsd_params,
+                    slope=args.slope,
+                    aspect=args.aspect,
+                    area_min=args.area_min,
+                    time_inter_mask_open=time_inter_mask_open,
+                    time_slope_aspect=time_slope_aspect,
+                    time_lsd=time_lsd,
+                    time_orientation_worker=time_orientation_worker,
+                    time_calculate_orientation=time_calculate_orientation,
+                    save_lsd=args.save_lsd,
+                    verbose=args.verbose),
+            list_rpg_patches,
+            chunksize=max([1, len(img_dataset) // args.nb_cores])
+        ))
+    del list_rpg_patches
+    start_concat = time.process_time()
+    orientations = gpd.geodataframe.GeoDataFrame(
+        pd.concat([r[0] for r in list_gdf]), crs=crs)
+    orientations.crs = crs
+    orientations.to_file(args.out_shp.split(".")[0] + "_orientations.shp")
+    print("len orientations:", len(orientations))
+    del orientations
+    centroids = gpd.geodataframe.GeoDataFrame(
+        pd.concat([r[1] for r in list_gdf]), crs=crs)
+    centroids.crs = crs
+    centroids.to_file(args.out_shp.split(".")[0] + "_centroids.shp")
+    print("len centroids:", len(centroids))
+    del centroids
+    return list_gdf, start_concat
+
+
+
+def timelogs_to_csv(args, data, data_norm, header, img_dataset, len_orientation, num_cols, num_rows, start, time_lsd,
+                    time_orientation_worker):
     with open(args.out_csv, "w", newline="") as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow(header)
         csv_writer.writerow(data)
-
     format_line = "{:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {}"
     print("PROCESS TIME:")
     print(format_line.format("", *header[:-4]))
     print(format_line.format("All processes", *data[:-4]))
     print(format_line.format("Per process", *data_norm))
-
     print(
-        f"\nAverage time for 1 image of size={num_rows,num_cols}: {sec_to_hms(time_orientation_worker.value / len(img_dataset))}")
+        f"\nAverage time for 1 image of size={num_rows, num_cols}: {sec_to_hms(time_orientation_worker.value / len(img_dataset))}")
     print(
         f"Average time for LSD on 1 crop: {sec_to_hms(time_lsd.value / len_orientation)}")
-
     end = datetime.now() - start
     print(f"\nDatetime: {end}")
+
 
 
 if __name__ == "__main__":
