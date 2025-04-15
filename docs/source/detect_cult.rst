@@ -153,50 +153,7 @@ To obtain the crop orientation in a shapefile format, you need to use the script
 
 - The files ```--slope``` and ```--aspect``` must be generated beforehand (see Calculation of data used for orientation calculation) and provided as input.
 
----------------------------------------------
-Computation of crop orientation with LSD CMLA
----------------------------------------------
 
-Extraction of lines in agricultural plots with the LSD CMLA algorithm
----------------------------------------------------------------------
-
-
-With the script `lsd_cmla_qsub.sh`.
-
-An example with a single input image:
-
-.. code-block:: console
-
-    python lsd_cmla.py --img /work/OT/eolab/DATA/BD_ORTHO/BDO_RVB_0M50_LAMB93_D11_2015.tif --out_shp /work/OT/eolab/taradelj/detection_orientation_culture/detection_orientation_culture/outputs/Aude_0M50_lsdcmla.shp
-
-
-An example with a folder containing the input images:
-
-.. code-block:: console
-
-    python lsd_cmla.py --img /work/OT/eolab/DATA/BD_ORTHO/BDORTHO_2-0_RVB-0M50_JP2-E080_LAMB93_D011_2015-01-01/BDORTHO/1_DONNEES_LIVRAISON_2016-05-00226/BDO_RVB_0M50_JP2-E080_LAMB93_D11-2015 \
-                        --out_shp /work/OT/eolab/taradelj/detection_orientation_culture/detection_orientation_culture/outputs/Aude_0M50_lsdcmla.shp \
-                        --type jp2
-
-You must specify the image file extension with the ```--type``` option.
-
-
-Use of extracted lines to calculate crop orientation in plots
----------------------------------------------------------------------
-
-**Merge of LSD CMLA shapefiles**
-
-With QGIS `Vector -> Data Management Tool -> Merge Vector Layers`.
-
-**Intersection between previous and RPG plots**
-
-With QGIS `Vector -> Geoprocessing tools -> Intersection`.
-The goal is to obtain LSD lines only within the RPG plots. The resulting shapefile of the lines must include a column containing the RPG plot IDs for the orientation calculation to work.
-
-Orientation computing
----------------------
-
-TO DO
 
 Without Qsub scripts (unrecommended)
 ====================================

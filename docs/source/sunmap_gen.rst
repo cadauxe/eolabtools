@@ -24,18 +24,6 @@ Content
 =======
 
 
-- `/listings` : This directory contains listing files(`.lst`) where paths to the MNS are listed (here Paris 2021).
-
-
-_listing_test.lst_ :
-
-    */work/EOLAB/DATA/MNS/Paris/75-2021-0645-6863-LA93-0M50.tif*
-    */work/EOLAB/DATA/MNS/Paris/75-2021-0646-6863-LA93-0M50.tif*
-    */work/EOLAB/DATA/MNS/Paris/75-2021-0647-6863-LA93-0M50.tif*
-
-
-- `/notebooks` : Contains test and visualization notebooks
-
 - `/src` : Contains the main scripts files :
 
     - `SunMapGenerator.py` : Main python file
