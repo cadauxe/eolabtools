@@ -362,7 +362,7 @@ def split_img_dataset(
             src_transform = dataset.transform
             dataset_bb = shapely.geometry.box(*dataset.bounds)
 
-            windows = [rasterio.windows.Window(i, j, min(num_rows-i, patch_size), min(num_cols-j, patch_size))
+            windows = [rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
                 for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)]
 
             for window in windows:
@@ -407,8 +407,8 @@ def split_img_borders(
         src_transform = dataset.transform
         dataset_bb = shapely.geometry.box(*dataset.bounds)
 
-    windows = [rasterio.windows.Window(i, j, min(num_rows-i, patch_size), min(num_cols-j, patch_size))
-        for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)] if patch_size else None
+    windows = [rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
+            for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)] if patch_size else None
 
     # Get the polygons intersected by but not within the image extent ie on the image borders
     border_dataset = RPG.intersects(dataset_bb) & ~RPG.within(dataset_bb)
@@ -462,6 +462,7 @@ def split_windows(
     
     intersects = RPG.intersects(bb)
     within = RPG.within(dataset_bb)
+
 
     if (intersects & within).any():
         list_rpg_patches.append((img_path, RPG.loc[intersects & within], window))
