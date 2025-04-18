@@ -1,6 +1,7 @@
 # This is Python file that creates a sun map over a specified area
 import argparse
 import concurrent.futures
+import multiprocessing
 import sys
 from functools import partial
 import itertools
@@ -272,6 +273,16 @@ def execute_merge_command(dsm_file, neighbors, output_dir):
 
     return merged_file
 
+def merge_rasters(file_names, output_dir):
+
+    # Output mosaic file
+    output_file = "mosaic-" + file_names[0][-27:]
+
+    mosaic_dataset = gdal.Warp(output_dir + output_file, file_names, format="GTiff")
+
+    # Close the mosaic dataset
+    mosaic_dataset = None
+
 
 def get_neighbors(tiles, tile_name):
 
@@ -471,7 +482,10 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
         changes_0_to_1 += np.logical_and(raster_arrays[i] == 0, raster_arrays[i + 1] == 1)
 
     # create 4 rasters
-    first_sun, first_shadow, second_sun, second_shadow = (np.full((height, width), 0.) for i in range(4)) # Initialize with infinity
+    first_sun = np.full((height, width), 0.)  # Initialize with infinity
+    first_shadow = np.full((height, width), 0.)  # Initialize with infinity
+    second_sun = np.full((height, width), 0.)
+    second_shadow = np.full((height, width), 0.)
 
     # Iterate through the input rasters
     for path, timestamp in zip(files, timestamps):
@@ -493,7 +507,10 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
     mask = changes_0_to_1 + changes_1_to_0 > occ_changes
 
     # set pixels with too much changes to -1
-    first_sun[mask], first_shadow[mask], second_sun[mask], second_shadow[mask] = (-1 for i in range(4))
+    first_sun[mask] = -1
+    first_shadow[mask] = -1
+    second_sun[mask] = -1
+    second_shadow[mask] = -1
 
     # stack rasters for poligonization
     stacked_rasters = np.stack([first_sun, first_shadow, second_sun, second_shadow], axis=2)
@@ -507,11 +524,27 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
         dst.write(coded_raster, 1)
 
     # polygonize coded raster
-    out_file = polyg_coded_raster(out_file, prefix, time_polygonize)
+    _logger.info("Starting polygonization")
+    in_file = out_file
+    out_file = prefix.replace('hillshade', 'coded_geoms') + '.gpkg'
+    start_polygonize_time = time.time()
+    command = f"gdal_polygonize.py {in_file} -b 1 -f GPKG {out_file} coded_geoms code"
+    subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+    end_polygonize_time = time.time() - start_polygonize_time
+    time_polygonize.set(time_polygonize.value + end_polygonize_time)
+    _logger.info("End polygonization")
 
     # dissolve vector
-    in_file, out_file = dissolve_vector(out_file, time_dissolve)
-
+    _logger.info("Starting dissolving")
+    in_file = out_file
+    out_file = in_file.replace('coded_geoms', 'sun_times_dissolved')
+    start_dissolve_time = time.time()
+    command = f'ogr2ogr {out_file} {in_file} -dialect sqlite -sql "SELECT ST_Union(geom), code FROM coded_geoms GROUP BY code" -f "GPKG"'
+    subprocess.run(command, shell=True)
+    end_dissolve_time = time.time() - start_dissolve_time
+    time_dissolve.set(time_dissolve.value + end_dissolve_time)
+    _logger.info("End dissolving")
+    
     # remove unnecessary files
     [os.remove(filename) for filename in glob.glob(f"{in_file}*")]
     os.remove(prefix.replace('hillshade', 'coded_raster') + '.tif')
@@ -523,52 +556,22 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
     sun_time_vector = gpd.read_file(out_file)
 
     # Appliquer la fonction à la colonne 'code'
-    final_name, times = code_col_changes(dictionnary, occ_changes, out_file, sun_time_vector,times)
-
-    return final_name
-
-
-def code_col_changes(dictionnary, occ_changes, out_file, sun_time_vector, times):
     if occ_changes == 2:
         cols = ['first_sun_appearance', 'first_shadow_appearance']
     else:
         cols = ['first_sun_appearance', 'first_shadow_appearance', 'second_sun_appearance', 'second_shadow_appearance']
 
     sun_time_vector[cols] = sun_time_vector['code'].apply(get_quadruplet, dict=dictionnary)
+
     sun_time_vector = sun_time_vector.drop(columns='code')
     sun_time_vector[cols] = sun_time_vector[cols].applymap(
         lambda x: pd.to_datetime(x, unit='s') if x > 0 else np.nan if x == -1 else times[0].replace(hour=23, minute=59,
-                                                                                                    second=59))
+                                                                                                 second=59))
     final_name = out_file.replace('_dissolved', '')
     sun_time_vector.to_file(final_name)
     os.remove(out_file)
-    return final_name, times
 
-
-def dissolve_vector(out_file, time_dissolve):
-    _logger.info("Starting dissolving")
-    in_file = out_file
-    out_file = in_file.replace('coded_geoms', 'sun_times_dissolved')
-    start_dissolve_time = time.time()
-    command = f'ogr2ogr {out_file} {in_file} -dialect sqlite -sql "SELECT ST_Union(geom), code FROM coded_geoms GROUP BY code" -f "GPKG"'
-    subprocess.run(command, shell=True)
-    end_dissolve_time = time.time() - start_dissolve_time
-    time_dissolve.set(time_dissolve.value + end_dissolve_time)
-    _logger.info("End dissolving")
-    return in_file, out_file
-
-
-def polyg_coded_raster(out_file, prefix, time_polygonize):
-    _logger.info("Starting polygonization")
-    in_file = out_file
-    out_file = prefix.replace('hillshade', 'coded_geoms') + '.gpkg'
-    start_polygonize_time = time.time()
-    command = f"gdal_polygonize.py {in_file} -b 1 -f GPKG {out_file} coded_geoms code"
-    subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
-    end_polygonize_time = time.time() - start_polygonize_time
-    time_polygonize.set(time_polygonize.value + end_polygonize_time)
-    _logger.info("End polygonization")
-    return out_file
+    return final_name
 
 
 def generate_daily_shadow_maps(files, time_process):
@@ -637,6 +640,7 @@ if __name__ == '__main__':
     parser.add_argument("-n_occ", "--occ_changes", type=int, default=4, help="Number of sun/shadow changes limit a day")
     parser.add_argument("-nbc", "--nb_cores", type=int, default=1, help="Number of cores to use")
     parser.add_argument('-o', '--output_dir', default=os.getcwd(), help='Output directory path')
+    parser.add_argument('-m', '--mosaic', action='store_true', help='Merge all outputs of same datetime to mosaic')
     parser.add_argument('-st', '--save_temp', action='store_true', help='Store processing times in CSV file')
     parser.add_argument('-sm', '--save_masks', action='store_true', help='Store hourly shadow masks')
 
@@ -646,6 +650,7 @@ if __name__ == '__main__':
     dsm_tiles = args.tiles_file
     area = args.area
     output_dir = args.output_dir
+    mosaic = args.mosaic
     nb_cores = args.nb_cores
     nb_changes_a_day = args.occ_changes
 
@@ -731,7 +736,11 @@ if __name__ == '__main__':
                                                           time_az_el=time_azimuth_elevation_computation,
                                                           time_mask_exec=time_shadow_mask_execution),
                                                   paths))
-
+                                                  # chunksize=
+        # if mosaic:
+        #     _logger.info("Merging rasters into mosaic")
+        #     all_files_created = [list(values) for values in zip(*all_files_created)]
+        #     [merge_rasters(file_names, output_dir) for file_names in all_files_created]
 
         if True:
             _logger.info("Creating daily shadow maps")
@@ -758,10 +767,7 @@ if __name__ == '__main__':
 
     elif dsm_file[-3:] == 'tif':
 
-        all_files_created = generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date, start_time, end_time, step_time, output_dir, time_azimuth_elevation_computation, time_shadow_mask_execution)
-
-        print(all_files_created)
-        input('r')
+        all_files_created = generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date, start_time, end_time, step_time, output_dir)
 
         if True:
             _logger.info("Creating daily shadow maps")
