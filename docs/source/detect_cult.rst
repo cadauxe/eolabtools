@@ -98,7 +98,7 @@ De plus pour chaque orientation calculée, 4 colonnes d'indicateurs de qualité 
 A partir des rasters Aspect et Slope calculés auparavent on peut extraire la valeur moyenne des pixels de ces éléments pour chaque parcelle. Ces valeurs moyennes ont été ajoutées dans des colonnes du shapefile :
 - "SLOPE" qui indique l'angle moyen de la pente en degrés ;
 - "ASPECT" qui indique l'orientation moyenne de la pente en degrés (angle azimut).
-- "CALC_ASPECT" qui est la conversion en angle azimut du vecteur calculé de l'orientation des cultures, afin d epouvoir comparer l'orientation de la pente avec celle des cultures.
+- "CALC_ASPECT" qui est la conversion en angle azimut du vecteur calculé de l'orientation des cultures, afin de pouvoir comparer l'orientation de la pente avec celle des cultures.
 
 Enfin une colonne "INDIC_ORIE" a été ajoutée ; il s'agit d'un indicatur d'orientation allant de 0 à 90. 0=les rangées des cultures sont dans le sens de la pente ; 90=les orientations sont perpendiculaires.
 
