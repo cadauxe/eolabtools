@@ -1,17 +1,17 @@
-import sys
-for path in sys.path:
-    print(path)
-
 from conftest import EOLabtoolsTestsPath
 import subprocess
 from test_utils import compare_files
 import pytest
+import os
 
 @pytest.mark.ci
 def test_sunmap_1tile(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     """
     TO DO
     """
+    with open(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst", "w") as f:
+        f.write(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/75-2021-0659-6861-LA93-0M50.tif" + "\n")
+
     command = [
         f"python",
         f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
@@ -27,6 +27,8 @@ def test_sunmap_1tile(eolabtools_paths: EOLabtoolsTestsPath) -> None:
 
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     print(result.stderr)
+
+    os.remove(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst")
 
     compare_files(reference_dir = f"{eolabtools_paths.sunmap_ref}/test_1tile_low_res",
                   output_dir = f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res",

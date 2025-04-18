@@ -22,6 +22,11 @@ class EOLabtoolsTestsPath():
         self.sunmap_outdir = test_data / "SunMapGen" / "test_out"
         self.sunmap_datadir = test_data / "SunMapGen" / "test_data"
 
+        self.plotor_ref = test_data / "DetecOrCult" / "reference_results"
+        self.plotor_outdir = test_data / "DetecOrCult" / "test_out"
+        self.plotor_datadir = test_data / "DetecOrCult" / "test_data"
+
+
 @pytest.fixture
 def eolabtools_paths(request) -> EOLabtoolsTestsPath:
     return EOLabtoolsTestsPath(Path(__file__).parent.parent)

@@ -25,6 +25,7 @@ from osgeo import gdal, ogr, osr
 import time
 from multiprocessing import Manager
 import csv
+import earthpy.spatial as es
 
 warnings.filterwarnings("ignore")
 _logger = logging.getLogger(__name__)
@@ -234,7 +235,32 @@ def execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_siz
         os.remove(output_dir + dsm_file.split('/')[-1][:-4] + '-' + 'hillshade.tif')
         execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_size, radius)
     """
-        
+
+def hillshade_compute(dsm_file, elevation, azimuth, output_dir):
+    """
+    TO DO
+    """
+    with rasterio.open(dsm_file) as src:
+        dem = src.read()
+        profile = src.profile
+    print(dem.shape)
+
+    #Remove first dimension if there is 3 dimensions
+    squeezed_dem = dem.squeeze()
+
+    hillshade = es.hillshade(arr=squeezed_dem, altitude=elevation, azimuth = azimuth)
+
+    # Update the profile for single-band float32 data
+    profile.update(dtype=rasterio.float32, count=1)
+
+    # Create output path
+    out_path = os.path.join(output_dir, os.path.basename(dsm_file).split('.tif')[0] + '-hillshade.tif')
+
+    # Save the hillshade to file
+    with rasterio.open(out_path, 'w', **profile) as dst:
+        dst.write(hillshade.astype(rasterio.float32), 1)
+
+
 
 def execute_merge_command(dsm_file, neighbors, output_dir):
     # define command to execute
@@ -326,7 +352,10 @@ def generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date,
 
                 # execute hillshade command
                 start_exec_command_time = time.time()
-                execute_command(merged_dsm_file, e, a, resolution, output_dir, wd_size=2048)
+
+                # execute_command(merged_dsm_file, e, a, resolution, output_dir, wd_size=2048)
+                hillshade_compute(merged_dsm_file, e, a, output_dir)
+
                 end_exec_command_time = time.time() - start_exec_command_time
                 time_mask_exec.set(time_mask_exec.value + end_exec_command_time)
 
@@ -494,16 +523,17 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
     sun_time_vector = gpd.read_file(out_file)
 
     # Appliquer la fonction à la colonne 'code'
-    final_name = code_col_changes(dictionnary, occ_changes, out_file, sun_time_vector)
+    final_name, times = code_col_changes(dictionnary, occ_changes, out_file, sun_time_vector,times)
 
     return final_name
 
 
-def code_col_changes(dictionnary, occ_changes, out_file, sun_time_vector):
+def code_col_changes(dictionnary, occ_changes, out_file, sun_time_vector, times):
     if occ_changes == 2:
         cols = ['first_sun_appearance', 'first_shadow_appearance']
     else:
         cols = ['first_sun_appearance', 'first_shadow_appearance', 'second_sun_appearance', 'second_shadow_appearance']
+
     sun_time_vector[cols] = sun_time_vector['code'].apply(get_quadruplet, dict=dictionnary)
     sun_time_vector = sun_time_vector.drop(columns='code')
     sun_time_vector[cols] = sun_time_vector[cols].applymap(
@@ -512,7 +542,7 @@ def code_col_changes(dictionnary, occ_changes, out_file, sun_time_vector):
     final_name = out_file.replace('_dissolved', '')
     sun_time_vector.to_file(final_name)
     os.remove(out_file)
-    return final_name
+    return final_name, times
 
 
 def dissolve_vector(out_file, time_dissolve):
@@ -729,6 +759,9 @@ if __name__ == '__main__':
     elif dsm_file[-3:] == 'tif':
 
         all_files_created = generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date, start_time, end_time, step_time, output_dir, time_azimuth_elevation_computation, time_shadow_mask_execution)
+
+        print(all_files_created)
+        input('r')
 
         if True:
             _logger.info("Creating daily shadow maps")
