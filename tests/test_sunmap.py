@@ -36,14 +36,19 @@ def test_sunmap_1tile(eolabtools_paths: EOLabtoolsTestsPath) -> None:
 
 
 @pytest.mark.ci
-def test_sunmap_2tile(eolabtools_paths: EOLabtoolsTestsPath) -> None:
+def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     """
     TO DO
     """
+    with open(f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/listing_2tiles.lst", "w") as f:
+        f.write(f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/75-2021-0648-6862-LA93-0M50.tif"
+                + "\n"
+                + f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/75-2021-0649-6862-LA93-0M50.tif" )
+
     command = [
         f"python",
         f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
-        f"--digital_surface_model", f"{eolabtools_paths.sunmap_datadir}/test_2tile_low_res/listing_2tiles.lst",
+        f"--digital_surface_model", f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/listing_2tiles.lst",
         f"--tiles_file", f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/2tiles.shp",
         f"--area", f"Paris",
         f"--date", f"2024-08-31", f"2024-08-31", f"1",
@@ -55,6 +60,8 @@ def test_sunmap_2tile(eolabtools_paths: EOLabtoolsTestsPath) -> None:
 
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     print(result.stderr)
+
+    os.remove(f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/listing_2tiles.lst")
 
     compare_files(reference_dir = f"{eolabtools_paths.sunmap_ref}/test_2tiles_low_res",
                   output_dir = f"{eolabtools_paths.sunmap_outdir}/test_2tiles_low_res",
