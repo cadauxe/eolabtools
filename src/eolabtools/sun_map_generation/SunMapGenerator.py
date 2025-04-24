@@ -378,16 +378,6 @@ def execute_merge_command(dsm_file, neighbors, output_dir):
 
     return merged_file
 
-def merge_rasters(file_names, output_dir):
-
-    # Output mosaic file
-    output_file = "mosaic-" + file_names[0][-27:]
-
-    mosaic_dataset = gdal.Warp(output_dir + output_file, file_names, format="GTiff")
-
-    # Close the mosaic dataset
-    mosaic_dataset = None
-
 
 def get_neighbors(tiles, tile_name):
 
@@ -745,7 +735,6 @@ if __name__ == '__main__':
     parser.add_argument("-n_occ", "--occ_changes", type=int, default=4, help="Number of sun/shadow changes limit a day")
     parser.add_argument("-nbc", "--nb_cores", type=int, default=1, help="Number of cores to use")
     parser.add_argument('-o', '--output_dir', default=os.getcwd(), help='Output directory path')
-    parser.add_argument('-m', '--mosaic', action='store_true', help='Merge all outputs of same datetime to mosaic')
     parser.add_argument('-st', '--save_temp', action='store_true', help='Store processing times in CSV file')
     parser.add_argument('-sm', '--save_masks', action='store_true', help='Store hourly shadow masks')
 
@@ -755,7 +744,6 @@ if __name__ == '__main__':
     dsm_tiles = args.tiles_file
     area = args.area
     output_dir = args.output_dir
-    mosaic = args.mosaic
     nb_cores = args.nb_cores
     nb_changes_a_day = args.occ_changes
 
@@ -841,11 +829,6 @@ if __name__ == '__main__':
                                                           time_az_el=time_azimuth_elevation_computation,
                                                           time_mask_exec=time_shadow_mask_execution),
                                                   paths))
-                                                  # chunksize=
-        # if mosaic:
-        #     _logger.info("Merging rasters into mosaic")
-        #     all_files_created = [list(values) for values in zip(*all_files_created)]
-        #     [merge_rasters(file_names, output_dir) for file_names in all_files_created]
 
         if True:
             _logger.info("Creating daily shadow maps")
