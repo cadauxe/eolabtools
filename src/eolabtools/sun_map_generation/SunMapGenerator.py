@@ -395,7 +395,7 @@ def get_neighbors(tiles, tile_name):
     gdf = gpd.read_file(tiles)
 
     # Trouver la dalle cible
-    target_tile = gdf[gdf['NOM_DALLE'] == tile_name]
+    target_tile = gdf[gdf['TILE_NAME'] == tile_name]
     
     if target_tile.empty:
         raise ValueError(f"No tile found with name {tile_name}")
@@ -412,7 +412,7 @@ def get_neighbors(tiles, tile_name):
 
     dir_path = os.path.dirname(tiles)
 
-    return [dir_path + '/' + name for name in neighbors['NOM_DALLE'].tolist()]
+    return [dir_path + '/' + name for name in neighbors['TILE_NAME'].tolist()]
 
 
 def generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date, start_time, end_time, step_time, output_dir,
@@ -449,7 +449,7 @@ def generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date,
     gdf = gpd.read_file(dsm_tiles)
 
     # Trouver la dalle cible
-    target_tile = gdf[gdf['NOM_DALLE'] == tile_name]
+    target_tile = gdf[gdf['TILE_NAME'] == tile_name]
 
     files_created = []
     for l1, l2, l3 in zip(list_of_datetimes, list_of_azimuths, list_of_elevations):
