@@ -187,71 +187,10 @@ def compute_radius(inputfile, resolution, elevation):
     return radius
 
 
-def execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_size=2048):
-
-    # Define the command to execute
-    radius = compute_radius(dsm_file, resolution, elevation)
-    if radius > 500:
-            radius = 500
-    while radius >= (wd_size / 5):
-            wd_size *= 2
-
-    _logger.info(f"window size {wd_size} and radius {radius}")
-
-    if radius is None:
-        command = f"rio georastertools hs {dsm_file} --elevation {elevation} --azimuth {azimuth} --resolution {resolution} " \
-              f"-o {output_dir} -ws {wd_size}"
-    else:
-        command = f"rio georastertools hs {dsm_file} --elevation {elevation} --azimuth {azimuth} --resolution {resolution} " \
-              f"-o {output_dir} -ws {wd_size} --radius {radius}"
-
-    _logger.info(command)
-
-    subprocess.run(command.split(' '))
-
-    """
-    # Execute the command
-    try:
-        subprocess.run(command, shell=True, capture_output=True, text=True, check=True, timeout=1000)
-
-    except subprocess.CalledProcessError as e:
-        # Error on radius value. Set window_size to larger value
-        print(compute_radius(dsm_file, resolution, elevation))
-        radius = get_radius_value(e.stdout)
-        print(radius)
-        # pas plus de 1000 pixels (500m) prise en compte pour l'ombre
-        if radius > 1000:
-            radius = 1000
-        window_size = wd_size # default
-        while radius >= (window_size / 5):
-            window_size *= 2
-        _logger.info(f"window size {window_size} and radius {radius}")
-        # retry command
-        # command = f"rio georastertools hs {dsm_file} --elevation {elevation} --azimuth {azimuth} --resolution {resolution} " \
-                  # f"-o {output_dir} -ws {window_size}"
-        # subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
-        execute_command(dsm_file, elevation, azimuth, resolution, output_dir, window_size, radius)
-
-    except subprocess.TimeoutExpired:
-        _logger.info("TIMEOUT")
-        wd_size = wd_size*2
-        os.remove(output_dir + dsm_file.split('/')[-1][:-4] + '-' + 'hillshade.tif')
-        execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_size, radius)
-    """
-
 def hillshade_compute(dsm_file, output_dir, elevation, azimuth, resolution):
     """
     TO DO
     """
-    # #Remove first dimension if there is 3 dimensions
-    # squeezed_dem = dem.squeeze()
-    #
-    # hillshade = es.hillshade(arr=squeezed_dem, altitude=elevation, azimuth = azimuth)
-    #
-    #
-    # # Update the profile for single-band float32 data
-    # profile.update(dtype=rasterio.float32, count=1)
-
     dem = rioxarray.open_rasterio(dsm_file)
 
     # Create output path
