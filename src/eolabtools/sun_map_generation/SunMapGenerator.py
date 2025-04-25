@@ -1,9 +1,6 @@
 # This is Python file that creates a sun map over a specified area
 import argparse
 import concurrent.futures
-import multiprocessing
-import rioxarray
-import xarray as xr
 import sys
 from functools import partial
 import itertools
@@ -28,7 +25,6 @@ from osgeo import gdal, ogr, osr
 import time
 from multiprocessing import Manager
 import csv
-import earthpy.spatial as es
 
 warnings.filterwarnings("ignore")
 _logger = logging.getLogger(__name__)
@@ -239,134 +235,6 @@ def execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_siz
         execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_size, radius)
     """
 
-def hillshade_compute(dsm_file, output_dir, elevation, azimuth, resolution):
-    """
-    TO DO
-    """
-    # #Remove first dimension if there is 3 dimensions
-    # squeezed_dem = dem.squeeze()
-    #
-    # hillshade = es.hillshade(arr=squeezed_dem, altitude=elevation, azimuth = azimuth)
-    #
-    #
-    # # Update the profile for single-band float32 data
-    # profile.update(dtype=rasterio.float32, count=1)
-
-    dem = rioxarray.open_rasterio(dsm_file)
-
-    # Create output path
-    out_path = os.path.join(output_dir, os.path.basename(dsm_file).split('.tif')[0] + '-hillshade.tif')
-
-    radius = compute_radius(dsm_file, resolution, elevation)
-    if radius > 500:
-        radius = 500
-
-    # initialize output
-    shape = dem.shape
-    out = np.zeros(shape, dtype=np.float32)
-
-    # Pad the input data
-    pad = ((radius, radius), (radius, radius))
-    pad_src = _pad_dataset_xarray(dem, pad, pad_mode = "edge")
-    shape = pad_src.shape
-
-    # prevent nodata problem
-    input_band = np.nan_to_num(pad_src[0], copy=False, nan=0)
-
-    # print(input_band[:2,:])
-    # compute direction
-    axe = _bresenham_line(180 - azimuth, radius)
-
-    # identify the largest elevation in the radius
-    view = input_band[radius: shape[1] - radius, radius: shape[2] - radius]
-
-    ratios = np.zeros((shape[1] - 2 * radius, shape[2] - 2 * radius), dtype=np.float32)
-
-    for x_tr, y_tr, r in axe:
-        new_ratios = input_band[radius + x_tr: shape[1] - radius + x_tr,
-                     radius + y_tr: shape[2] - radius + y_tr] - view
-        # tangente de l'angle
-        new_ratios /= (r * resolution)
-        # print(new_ratios[:1,:20])
-        ratios = np.maximum(ratios, new_ratios)
-
-    # print(ratios[:2,:])
-    angles = np.arctan(ratios)
-    # print(angles[:2, :])
-
-    out[0] = angles > np.radians(elevation)
-
-    # Save the hillshade to file
-    out = xr.DataArray(out, dims = dem.dims, coords = dem.coords)
-    out.rio.to_raster(out_path)
-
-
-def _pad_dataset_xarray(dataset : xr.DataArray, pad: tuple, pad_mode: str):
-    """
-    Pads a xarray dataset along spatial dimensions (x and y) based on the specified padding values and mode.
-    Padding can be applied using various modes such as constant, edge, reflect, etc., as supported by xarray.
-
-    Args:
-        dataset (xarray.Dataset): The input xarray dataset to be padded.
-                                  It is expected to have dimensions "band", "y", and "x".
-
-        pad (tuple): A tuple of two integers specifying the number of pixels to pad in the x and y dimensions.
-
-        pad_mode (str): The padding mode to use. Options include "constant", "edge", "reflect", etc.,
-                        as supported by xarray's `pad` method.
-    """
-    # pad the dataset if necessary
-    padx, pady = pad
-    pad_width = {"band" : (0,0), "y": pady, "x": padx}
-    pad_dataset = dataset.pad(pad_width=pad_width, mode=pad_mode)
-    return pad_dataset
-
-
-def _bresenham_line(theta, radius):
-    """Implementation of the Bresenham's line algorithm:
-    https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-
-    Params:
-        theta: theta angle (in degrees)
-        radius: size of the line
-
-    Returns:
-        Tuple with the coordinates of the line points from point (0, 0)
-        ((0, 0) is not included).
-    """
-    x, y = 0, 0
-    dx = math.cos(math.radians(theta))
-    dy = math.sin(math.radians(theta))
-    sx = -1 if dx < 0 else 1
-    sy = -1 if dy < 0 else 1
-    pts = list()
-    r = 0
-    if abs(dx) > abs(dy):
-        delta = abs(math.tan(math.radians(theta)))
-        err = 0
-        while r < radius:
-            x += sx
-            err += delta
-            if err > 0.5:
-                y += sy
-                err -= 1.0
-            r = math.sqrt(x ** 2 + y ** 2)
-            pts.append((x, y, r))
-    else:
-        delta = abs(math.tan(math.radians(90 - theta)))
-        err = 0
-        while r < radius:
-            y += sy
-            err += delta
-            if err > 0.5:
-                x += sx
-                err -= 1.0
-            r = math.sqrt(x ** 2 + y ** 2)
-            pts.append((x, y, r))
-
-    return pts
-
-
 
 def execute_merge_command(dsm_file, neighbors, output_dir):
     # define command to execute
@@ -459,8 +327,7 @@ def generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date,
                 # execute hillshade command
                 start_exec_command_time = time.time()
 
-                # execute_command(merged_dsm_file, e, a, resolution, output_dir, wd_size=2048)
-                hillshade_compute(merged_dsm_file, output_dir, e, a, resolution)
+                execute_command(merged_dsm_file, e, a, resolution, output_dir, wd_size=2048)
 
                 end_exec_command_time = time.time() - start_exec_command_time
                 time_mask_exec.set(time_mask_exec.value + end_exec_command_time)
