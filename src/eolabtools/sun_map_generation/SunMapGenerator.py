@@ -1,9 +1,6 @@
 # This is Python file that creates a sun map over a specified area
 import argparse
 import concurrent.futures
-import multiprocessing
-import rioxarray
-import xarray as xr
 import sys
 from functools import partial
 import itertools
@@ -28,7 +25,6 @@ from osgeo import gdal, ogr, osr
 import time
 from multiprocessing import Manager
 import csv
-import earthpy.spatial as es
 
 warnings.filterwarnings("ignore")
 _logger = logging.getLogger(__name__)
@@ -186,153 +182,58 @@ def compute_radius(inputfile, resolution, elevation):
 
     return radius
 
-def hillshade_compute(dsm_file, output_dir, elevation, azimuth, resolution):
-    """
-    TO DO
-    """
-    dem = rioxarray.open_rasterio(dsm_file)
 
-    # Create output path
-    out_path = os.path.join(output_dir, os.path.basename(dsm_file).split('.tif')[0] + '-hillshade.tif')
+def execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_size=2048):
 
+    # Define the command to execute
     radius = compute_radius(dsm_file, resolution, elevation)
     if radius > 500:
-        radius = 500
+            radius = 500
+    while radius >= (wd_size / 5):
+            wd_size *= 2
 
-    # initialize output
-    shape = dem.shape
-    out = np.zeros(shape, dtype=np.float32)
+    _logger.info(f"window size {wd_size} and radius {radius}")
 
-    # Pad the input data
-    pad = ((radius, radius), (radius, radius))
-    pad_src = _pad_dataset_xarray(dem, pad, pad_mode = "edge")
-    shape = pad_src.shape
-
-    # prevent nodata problem
-    input_band = np.nan_to_num(pad_src[0], copy=False, nan=0)
-
-    # print(input_band[:2,:])
-    # compute direction
-    axe = _bresenham_line(180 - azimuth, radius)
-
-    # identify the largest elevation in the radius
-    view = input_band[radius: shape[1] - radius, radius: shape[2] - radius]
-
-    ratios = np.zeros((shape[1] - 2 * radius, shape[2] - 2 * radius), dtype=np.float32)
-
-    for x_tr, y_tr, r in axe:
-        new_ratios = input_band[radius + x_tr: shape[1] - radius + x_tr,
-                     radius + y_tr: shape[2] - radius + y_tr] - view
-        # tangente de l'angle
-        new_ratios /= (r * resolution)
-        # print(new_ratios[:1,:20])
-        ratios = np.maximum(ratios, new_ratios)
-
-    # print(ratios[:2,:])
-    angles = np.arctan(ratios)
-    # print(angles[:2, :])
-
-    out[0] = angles > np.radians(elevation)
-
-    # Save the hillshade to file
-    out = xr.DataArray(out, dims = dem.dims, coords = dem.coords)
-    out.rio.to_raster(out_path)
-
-# def hillshade_compute2(dsm_file, output_dir, elevation, azimuth, resolution):
-#     """
-#     TO DO
-#     """
-#     with rasterio.open(dsm_file) as src:
-#         dem = src.read()
-#         profile = src.profile
-#
-#     # Create output path
-#     out_path = os.path.join(output_dir, os.path.basename(dsm_file).split('.tif')[0] + '-hillshade.tif')
-#
-#     #Remove first dimension if there is 3 dimensions
-#     squeezed_dem = dem.squeeze()
-#
-#     hillshade = es.hillshade(arr=squeezed_dem, altitude=elevation, azimuth = azimuth)
-#
-#     hill_bin = (hillshade - squeezed_dem) != 0
-#
-#     # Update the profile for single-band float32 data
-#     profile.update(dtype=rasterio.float32, count=1)
-#
-#     # Save the hillshade to file
-#
-#     with rasterio.open(out_path, 'w', **profile) as dst:
-#         dst.write(hillshade.astype(rasterio.float32), 1)
-#
-#     with rasterio.open(os.path.join(output_dir, os.path.basename(dsm_file).split('.tif')[0] + '-dem.tif'), 'w', **profile) as dst:
-#         dst.write(squeezed_dem.astype(rasterio.float32), 1)
-
-
-def _pad_dataset_xarray(dataset : xr.DataArray, pad: tuple, pad_mode: str):
-    """
-    Pads a xarray dataset along spatial dimensions (x and y) based on the specified padding values and mode.
-    Padding can be applied using various modes such as constant, edge, reflect, etc., as supported by xarray.
-
-    Args:
-        dataset (xarray.Dataset): The input xarray dataset to be padded.
-                                  It is expected to have dimensions "band", "y", and "x".
-
-        pad (tuple): A tuple of two integers specifying the number of pixels to pad in the x and y dimensions.
-
-        pad_mode (str): The padding mode to use. Options include "constant", "edge", "reflect", etc.,
-                        as supported by xarray's `pad` method.
-    """
-    # pad the dataset if necessary
-    padx, pady = pad
-    pad_width = {"band" : (0,0), "y": pady, "x": padx}
-    pad_dataset = dataset.pad(pad_width=pad_width, mode=pad_mode)
-    return pad_dataset
-
-
-def _bresenham_line(theta, radius):
-    """Implementation of the Bresenham's line algorithm:
-    https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-
-    Params:
-        theta: theta angle (in degrees)
-        radius: size of the line
-
-    Returns:
-        Tuple with the coordinates of the line points from point (0, 0)
-        ((0, 0) is not included).
-    """
-    x, y = 0, 0
-    dx = math.cos(math.radians(theta))
-    dy = math.sin(math.radians(theta))
-    sx = -1 if dx < 0 else 1
-    sy = -1 if dy < 0 else 1
-    pts = list()
-    r = 0
-    if abs(dx) > abs(dy):
-        delta = abs(math.tan(math.radians(theta)))
-        err = 0
-        while r < radius:
-            x += sx
-            err += delta
-            if err > 0.5:
-                y += sy
-                err -= 1.0
-            r = math.sqrt(x ** 2 + y ** 2)
-            pts.append((x, y, r))
+    if radius is None:
+        command = f"rio georastertools hs {dsm_file} --elevation {elevation} --azimuth {azimuth} --resolution {resolution} " \
+              f"-o {output_dir} -ws {wd_size}"
     else:
-        delta = abs(math.tan(math.radians(90 - theta)))
-        err = 0
-        while r < radius:
-            y += sy
-            err += delta
-            if err > 0.5:
-                x += sx
-                err -= 1.0
-            r = math.sqrt(x ** 2 + y ** 2)
-            pts.append((x, y, r))
+        command = f"rio georastertools hs {dsm_file} --elevation {elevation} --azimuth {azimuth} --resolution {resolution} " \
+              f"-o {output_dir} -ws {wd_size} --radius {radius}"
 
-    return pts
+    _logger.info(command)
 
+    subprocess.run(command.split(' '))
+
+    """
+    # Execute the command
+    try:
+        subprocess.run(command, shell=True, capture_output=True, text=True, check=True, timeout=1000)
+
+    except subprocess.CalledProcessError as e:
+        # Error on radius value. Set window_size to larger value
+        print(compute_radius(dsm_file, resolution, elevation))
+        radius = get_radius_value(e.stdout)
+        print(radius)
+        # pas plus de 1000 pixels (500m) prise en compte pour l'ombre
+        if radius > 1000:
+            radius = 1000
+        window_size = wd_size # default
+        while radius >= (window_size / 5):
+            window_size *= 2
+        _logger.info(f"window size {window_size} and radius {radius}")
+        # retry command
+        # command = f"rio georastertools hs {dsm_file} --elevation {elevation} --azimuth {azimuth} --resolution {resolution} " \
+                  # f"-o {output_dir} -ws {window_size}"
+        # subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        execute_command(dsm_file, elevation, azimuth, resolution, output_dir, window_size, radius)
+
+    except subprocess.TimeoutExpired:
+        _logger.info("TIMEOUT")
+        wd_size = wd_size*2
+        os.remove(output_dir + dsm_file.split('/')[-1][:-4] + '-' + 'hillshade.tif')
+        execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_size, radius)
+    """
 
 
 def execute_merge_command(dsm_file, neighbors, output_dir):
@@ -426,8 +327,7 @@ def generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date,
                 # execute hillshade command
                 start_exec_command_time = time.time()
 
-                # execute_command(merged_dsm_file, e, a, resolution, output_dir, wd_size=2048)
-                hillshade_compute(merged_dsm_file, output_dir, e, a, resolution)
+                execute_command(merged_dsm_file, e, a, resolution, output_dir, wd_size=2048)
 
                 end_exec_command_time = time.time() - start_exec_command_time
                 time_mask_exec.set(time_mask_exec.value + end_exec_command_time)
@@ -488,6 +388,14 @@ def create_dark_image(file):
     return modified_image[0,:,:], profile
 
 
+def get_radius_value(error_message):
+    match = re.search(r"value=(\d+)", error_message)
+    if match:
+        return int(match.group(1))
+    else:
+        return None
+
+
 def code_raster(stacked_array):
     # reshape array
     data_2d = stacked_array.reshape(-1, 4)
@@ -535,41 +443,8 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
         changes_1_to_0 += np.logical_and(raster_arrays[i] == 1, raster_arrays[i + 1] == 0)
         changes_0_to_1 += np.logical_and(raster_arrays[i] == 0, raster_arrays[i + 1] == 1)
 
-    # create 4 rasters
-    first_sun = np.full((height, width), 0.)  # Initialize with infinity
-    first_shadow = np.full((height, width), 0.)  # Initialize with infinity
-    second_sun = np.full((height, width), 0.)
-    second_shadow = np.full((height, width), 0.)
-
-    # Iterate through the input rasters
-    for path, timestamp in zip(files, timestamps):
-        with rasterio.open(path) as src:
-            data = src.read(1)  # Read the raster data
-            mask_first_sun = (first_sun == 0.) & (data == 0.)  # Identify pixels changing from 1 to 0
-            mask_first_shadow = (first_shadow == 0.) & (first_sun != 0.) & (
-                        data == 1.)  # Identify pixels changing from 0 to 1
-            mask_second_sun = (second_sun == 0.) & (first_shadow != 0.) & (
-                        data == 0.)  # Identify pixels changing from 0 to 1
-            mask_second_shadow = (second_shadow == 0.) & (second_sun != 0.) & (
-                        data == 1.)  # Identify pixels changing from 0 to 1
-
-            first_sun[mask_first_sun] = timestamp  # Update time for pixels changing from 1 to 0
-            first_shadow[mask_first_shadow] = timestamp  # Update time for pixels changing from 0 to 1
-            second_sun[mask_second_sun] = timestamp  # Update time for pixels changing from 1 to 0
-            second_shadow[mask_second_shadow] = timestamp  # Update time for pixels changing from 0 to 1
-
-    mask = changes_0_to_1 + changes_1_to_0 > occ_changes
-
-    # set pixels with too much changes to -1
-    first_sun[mask] = -1
-    first_shadow[mask] = -1
-    second_sun[mask] = -1
-    second_shadow[mask] = -1
-
-    # stack rasters for poligonization
-    stacked_rasters = np.stack([first_sun, first_shadow, second_sun, second_shadow], axis=2)
-    coded_raster, dictionnary = code_raster(stacked_rasters)
-
+    coded_raster, dictionnary = raster_stack(changes_0_to_1, changes_1_to_0, files, height, occ_changes, timestamps,
+                                             width)
     # save raster
     profile['dtype'] = 'int32'
     profile['nodata'] = -999
@@ -626,6 +501,40 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
     os.remove(out_file)
 
     return final_name
+
+
+def raster_stack(changes_0_to_1, changes_1_to_0, files, height, occ_changes, timestamps, width):
+    # create 4 rasters
+    first_sun = np.full((height, width), 0.)  # Initialize with infinity
+    first_shadow = np.full((height, width), 0.)  # Initialize with infinity
+    second_sun = np.full((height, width), 0.)
+    second_shadow = np.full((height, width), 0.)
+    # Iterate through the input rasters
+    for path, timestamp in zip(files, timestamps):
+        with rasterio.open(path) as src:
+            data = src.read(1)  # Read the raster data
+            mask_first_sun = (first_sun == 0.) & (data == 0.)  # Identify pixels changing from 1 to 0
+            mask_first_shadow = (first_shadow == 0.) & (first_sun != 0.) & (
+                    data == 1.)  # Identify pixels changing from 0 to 1
+            mask_second_sun = (second_sun == 0.) & (first_shadow != 0.) & (
+                    data == 0.)  # Identify pixels changing from 0 to 1
+            mask_second_shadow = (second_shadow == 0.) & (second_sun != 0.) & (
+                    data == 1.)  # Identify pixels changing from 0 to 1
+
+            first_sun[mask_first_sun] = timestamp  # Update time for pixels changing from 1 to 0
+            first_shadow[mask_first_shadow] = timestamp  # Update time for pixels changing from 0 to 1
+            second_sun[mask_second_sun] = timestamp  # Update time for pixels changing from 1 to 0
+            second_shadow[mask_second_shadow] = timestamp  # Update time for pixels changing from 0 to 1
+    mask = changes_0_to_1 + changes_1_to_0 > occ_changes
+    # set pixels with too much changes to -1
+    first_sun[mask] = -1
+    first_shadow[mask] = -1
+    second_sun[mask] = -1
+    second_shadow[mask] = -1
+    # stack rasters for poligonization
+    stacked_rasters = np.stack([first_sun, first_shadow, second_sun, second_shadow], axis=2)
+    coded_raster, dictionnary = code_raster(stacked_rasters)
+    return coded_raster, dictionnary
 
 
 def generate_daily_shadow_maps(files, time_process):
