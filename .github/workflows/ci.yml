@@ -44,7 +44,8 @@ jobs:
       run: |
         conda create -n test_env python=3.8.13 libgdal=3.5.0 -c conda-forge -c defaults -y
         conda activate test_env
-        pip install . --no-binary rasterio
+        pip install . 
+        pip install georastertools --no-binary rasterio
         pip install pylint mccabe
     - name: test
       shell: bash -l {0}
