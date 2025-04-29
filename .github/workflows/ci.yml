@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python 3.10
+      - name: Setup Python 3.8.13
         uses: actions/setup-python@v3
         with:
-          python-version: "3.10"
+          python-version: "3.8.13"
       - name: Create test env
         shell: bash -l {0}
         run: |
@@ -30,22 +30,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Setup Python 3.10
+    - name: Setup Python 3.8.13
       uses: actions/setup-python@v3
       with:
-        python-version: "3.10"
+        python-version: "3.8.13"
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2
       with:
-        python-version: '3.10'
+        python-version: 3.8.13
         auto-activate-base: false
     - name: Create test env
       shell: bash -l {0}
       run: |
-        conda create -n test_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+        conda create -n test_env python=3.8.13 libgdal=3.5.0 -c conda-forge -c defaults -y
         conda activate test_env
+        pip install . 
         pip install georastertools --no-binary rasterio
-        pip install . --force-reinstall --no-cache-dir
         pip install pylint mccabe
     - name: test
       shell: bash -l {0}
