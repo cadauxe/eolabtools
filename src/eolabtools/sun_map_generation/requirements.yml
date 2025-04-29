@@ -24,7 +24,6 @@ fsspec==2023.12.2
 geographiclib==2.0
 geopandas==0.13
 geopy==2.4.0
-georastertools
 idna==3.6
 imageio==2.32.0
 importlib-metadata==6.8.0

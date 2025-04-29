@@ -7,6 +7,9 @@ Sun Map Generation
 #Change installation procedure
 #TO DO
 
+
+Dire à l'utilisateur qu'il faut que son shapefile s'appelle TILE_NAME
+
 Sun Map Generation is a tool for generating sunshine maps for a specific area at a specific time.
 
 Installing environment
