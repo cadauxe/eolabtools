@@ -26,6 +26,10 @@ class EOLabtoolsTestsPath():
         self.plotor_outdir = test_data / "DetecOrCult" / "test_out"
         self.plotor_datadir = test_data / "DetecOrCult" / "test_data"
 
+        self.nightosm_ref = test_data / "NightOSMReg" / "reference_results"
+        self.nightosm_outdir = test_data / "NightOSMReg" / "test_out"
+        self.nightosm_datadir = test_data / "NightOSMReg" / "test_data"
+
 
 @pytest.fixture
 def eolabtools_paths(request) -> EOLabtoolsTestsPath:
