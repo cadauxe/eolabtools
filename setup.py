@@ -36,7 +36,7 @@ if __name__ == "__main__":
               zip_safe=False,
               setup_requires = ["setuptools_scm"],
               install_requires=read_requirements("src/eolabtools/sun_map_generation/requirements.yml"),
-              python_requires='==3.8.13',
+              python_requires='>=3.8.13',
               use_scm_version={"version_scheme": "no-guess-dev"})
     except:  # noqa
         print(
