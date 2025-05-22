@@ -1,0 +1,12 @@
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pyogrio
+  - shapely>=2
+  - geopandas
+  - pyrosm
+  - scikit-image
+  - opencv
+  - matplotlib
+  - pyyaml

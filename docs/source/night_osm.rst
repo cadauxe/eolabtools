@@ -4,6 +4,11 @@
 Night OSM Registration
 ======================
 
+se mettre en python 3.9
+conda install otb=8.0.0 -c iota2
+pip install "shapely>=2" markupsafe geopandas pyrosm scikit-image opencv-python matplotlib pyyaml
+
+
 #Change installation procedure
 #TO DO
 
