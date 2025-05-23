@@ -8,5 +8,6 @@ dependencies:
   - pyrosm
   - scikit-image
   - opencv
+  - pytest
   - matplotlib
   - pyyaml
