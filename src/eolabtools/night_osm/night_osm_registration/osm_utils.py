@@ -98,6 +98,8 @@ def get_osm_raster(
     """
     # Load OSM data
     osm, bbox = get_osm_data(osm_dataset, raster_src, download_dir, proxy)
+    print("BBox:", bbox)
+    print("OSM area bounds:", osm.bounding_box)
 
     # Rasterize OSM data depending on the chosen vectors
     # Positives vectors
@@ -146,7 +148,8 @@ def get_osm_raster(
     if water_file:
         gdf_water = gpd.read_file(water_file, bbox)
     else:
-        gdf_water = osm.get_data_by_custom_criteria({"water": ["river"]})
+        #Raise pyrosm.py:767: UserWarning: Could not find any OSM data for given area. ERROR
+        gdf_water = osm.get_data_by_custom_criteria(custom_filter={"water": ["river", "basin"]})
     if raster_src.crs != 4326:
         gdf_water = gdf_water.to_crs(raster_src.crs)
 

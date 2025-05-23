@@ -4,8 +4,22 @@ import numpy as np
 import os
 from glob import glob
 
+import shutil
 import filecmp
 import pandas as pd
+
+def clear_outdir(dir_path):
+    for item in os.listdir(dir_path):
+        full_path = os.path.join(dir_path, item)
+        if os.path.isfile(full_path) or os.path.islink(full_path):
+            os.unlink(full_path)  # delete file or symlink
+        elif os.path.isdir(full_path):
+            shutil.rmtree(full_path)  # delete folder
+
+def create_outdir(dir_path):
+    if not os.path.isdir(dir_path + '/'):
+        os.makedirs(dir_path + '/')
+    clear_outdir(dir_path)
 
 def get_all_files(reference_dir):
     all_files = glob(os.path.join(reference_dir, "**", "*"), recursive=True)
@@ -23,6 +37,7 @@ def compare_csv(file1, file2):
 
     if not df1_sorted.equals(df2_sorted):
         raise ValueError(f"CSV files differ: {file1} and {file2}")
+    print('ok')
 
 
 def compare_shapefiles(file1, file2):
@@ -41,6 +56,7 @@ def compare_tif(file1, file2, atol=1e-10):
         arr2 = src2.read()
         if not np.allclose(arr1, arr2, atol=atol):
             raise ValueError(f"TIFF pixel values differ.")
+        print('ok')
 
 
 def compare_gpkg(file1, file2):
