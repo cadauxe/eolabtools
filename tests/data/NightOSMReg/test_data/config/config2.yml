@@ -15,7 +15,7 @@ subsampling: 1
 radiance_threshold: 6.5
 
 # Path to an OSM .pbf file, or a city name in `pyrosm.data.sources.cities.available`
-osm_dataset: /home/ecadaux/Documents/work/eolabtools/eolabtools/tests/data/NightOSMReg/test_data/osm/Paris.osm.pbf
+osm_dataset: /home/ecadaux/Documents/work/eolabtools/eolabtools/tests/data/NightOSMReg/test_data/osm/Paris-Extrait2.osm.pbf
 
 
 ### Optional
