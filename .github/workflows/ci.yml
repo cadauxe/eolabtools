@@ -41,7 +41,7 @@ jobs:
         conda activate test_env
         conda install otb=8.0.1 rasterio -c iota2 -c conda-forge
         conda env update -f src/eolabtools/night_osm/requirements.yml 
-        pip install -e . --no-deps
+        pip install -e ./src/eolabtools/night_osm --no-deps
         pip install pylint mccabe
     - name: test
       shell: bash -l {0}
