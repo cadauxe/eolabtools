@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python 3.8.13
+      - name: Setup Python 3.11.12
         uses: actions/setup-python@v3
         with:
-          python-version: "3.8.13"
+          python-version: "3.11.12"
       - name: Create test env
         shell: bash -l {0}
         run: |
@@ -23,29 +23,31 @@ jobs:
       - name: code quality
         shell: bash -l {0}
         run: |
-          pylint --disable=all --fail-under=10 --enable=too-many-statements src/eolabtools/sun_map_generation/
-          pylint --disable=all --fail-under=10 --enable=too-many-nested-blocks src/eolabtools/sun_map_generation/
-          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/sun_map_generation
+          pylint --disable=all --fail-under=10 --enable=too-many-statements src/eolabtools/night_osm/night_osm_registration/
+          pylint --disable=all --fail-under=10 --enable=too-many-nested-blocks src/eolabtools/night_osm/night_osm_registration/
+          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/night_osm/night_osm_registration/
   test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Setup Python 3.8.13
+    - name: Setup Python 3.11.12
       uses: actions/setup-python@v3
       with:
-        python-version: "3.8.13"
+        python-version: "3.11.12"
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2
       with:
-        python-version: 3.8.13
+        python-version: 3.11.12
         auto-activate-base: false
     - name: Create test env
       shell: bash -l {0}
       run: |
-        conda create -n test_env python=3.8.13 libgdal=3.5.0 -c conda-forge -c defaults -y
+        conda create -n test_env
         conda activate test_env
-        pip install . 
-        pip install georastertools --no-binary rasterio
+        conda install otb=8.0.1 -c iota2
+        conda install rasterio
+        conda env update -f src/eolabtools/night_osm/requirements.yml 
+        pip install -e . --no-deps
         pip install pylint mccabe
     - name: test
       shell: bash -l {0}
