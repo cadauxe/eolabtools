@@ -39,7 +39,6 @@ def compare_csv(file1, file2):
 
     if not df1_sorted.equals(df2_sorted):
         raise ValueError(f"CSV files differ: {file1} and {file2}")
-    print('ok')
 
 
 def compare_shapefiles(file1, file2):
@@ -58,7 +57,6 @@ def compare_tif(file1, file2, atol=1e-10):
         arr2 = src2.read()
         if not np.allclose(arr1, arr2, atol=atol):
             raise ValueError(f"TIFF pixel values differ.")
-        print('ok')
 
 
 def compare_gpkg(file1, file2):
@@ -68,6 +66,14 @@ def compare_gpkg(file1, file2):
     # Sort to ensure consistent ordering
     gdf1 = gdf1.sort_values(by=gdf1.columns.tolist()).reset_index(drop=True)
     gdf2 = gdf2.sort_values(by=gdf2.columns.tolist()).reset_index(drop=True)
+
+    diff_attr = pd.concat([gdf1, gdf2]).drop_duplicates(keep=False)
+
+    # Compare geometry differences
+    diff_geom = gdf1[~gdf1.geometry.isin(gdf2.geometry)]
+
+    print("Attribute differences:\n", diff_attr)
+    print("Geometry differences:\n", diff_geom)
 
     if gdf1.equals(gdf2):
         print("GPKG files are identical.")
