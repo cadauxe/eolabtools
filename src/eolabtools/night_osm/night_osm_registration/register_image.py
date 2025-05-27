@@ -120,95 +120,26 @@ def run(
     0. Crop night raster if needed
     """
 
-    if roi_file is not None:
-        raster_crop = outdir / f"{infile.stem}_cropped.tif"
-        raster_src, roi_list = crop_raster(roi_file, raster_src, raster_crop)
-        profile = raster_src.profile.copy()
-        infile = raster_crop
-    else:
-        roi_list = gpd.GeoSeries()
+    infile, profile, raster_src, roi_list = crop_night_raster(infile, outdir, profile, raster_src, roi_file)
 
     """
     1. Transform night raster into binary raster
     """
-    bin_profile = {
-        "nodata": None,
-        "dtype": np.uint8,
-        "count": 1,
-        # For compressed 1 bit outputs
-        "nbits": 1,
-        "compress": "CCITTFAX4",
-    }
-    if raster_bin_path is None:
-        raster_bin_path = outdir / f"{infile.stem}_binary.tif"
-    if Path(raster_bin_path).exists():
-        print("Binary input raster already exists, skipping this step...")
-        raster_bin = rasterio.open(raster_bin_path).read(1)
-    else:
-        print("Binarization of input raster")
-        raster_bin = raster_to_bin(raster_src, S=radiance_threshold)
-        # Save
-        tmp_profile = profile.copy()
-        tmp_profile.update(bin_profile)
-        with rasterio.open(raster_bin_path, "w", **tmp_profile) as new_dataset:
-            new_dataset.write(raster_bin, 1)
+    bin_profile, raster_bin = night_raster_2_binary(infile, outdir, profile, radiance_threshold, raster_bin_path,
+                                                    raster_src)
 
     """
     2. Get OSM building vector data and convert it to raster
     """
-    if raster_osm_path is None:
-        raster_osm_path = outdir / f"{infile.stem}_osm.tif"
-    if Path(raster_osm_path).exists():
-        print("OSM binary raster already exists, skipping this step...")
-        raster_osm = rasterio.open(raster_osm_path).read(1)
-    else:
-        print("Create OSM binary raster")
-        raster_osm = get_osm_raster(
-            osm_tags,
-            osm_dataset,
-            raster_src,
-            roi_list,
-            outdir,
-            water_vector,
-            road_buffer_size,
-            proxy,
-        )
-        # Save file
-        tmp_profile = profile.copy()
-        tmp_profile.update(bin_profile)
-        with rasterio.open(raster_osm_path, mode="w", **tmp_profile) as new_dataset:
-            new_dataset.write(raster_osm, 1)
+    raster_osm = osm_build_vector(bin_profile, infile, osm_dataset, osm_tags, outdir, profile, proxy, raster_osm_path,
+                                  raster_src, road_buffer_size, roi_list, water_vector)
 
     """
     3. Compute colocalisation error between raster and osm locally for each tile
     """
 
-    shift_val, shift_pos, tiles, shift_mask, filtered_shift_mask = compute_shift(
-        raster_bin, raster_osm, window_size, max_shift
-    )
-    del raster_bin
-    del raster_osm
-
-    # Check & Create Shift result folder
-    shift_dir = outdir / f"{infile.stem}_MS{max_shift}_WS{window_size}_SS{subsampling}"
-    shift_dir.mkdir(exist_ok=True, parents=True)
-
-    tmp_profile = profile.copy()
-    tmp_profile.update({"count": 1, "dtype": shift_mask.dtype, "nodata": None})
-    with rasterio.open(
-        shift_dir / "shift_mask.tif", mode="w", **tmp_profile
-    ) as new_dataset:
-        new_dataset.write(shift_mask, 1)
-
-    out_filtered_shift = shift_dir / "filtered_shift_mask.tif"
-    with rasterio.open(out_filtered_shift, mode="w", **tmp_profile) as new_dataset:
-        new_dataset.write(filtered_shift_mask, 1)
-
-    #  Save np array and Plot Quiver
-    nparray_to_csv(shift_val[0], shift_dir / "row_offset_value.csv")
-    nparray_to_csv(shift_val[1], shift_dir / "column_offset_value.csv")
-    nparray_to_csv(shift_pos[0], shift_dir / "row_offset_position.csv")
-    nparray_to_csv(shift_pos[1], shift_dir / "column_offset_position.csv")
+    shift_dir, shift_val = compute_colocalisation_error(infile, max_shift, outdir, profile, raster_bin, raster_osm,
+                                                        subsampling, window_size)
 
     """
     4. Compute displacement grid (size of raster_src)
@@ -274,6 +205,95 @@ def run(
 
         # Apply new displacement grid
         apply_shift(image_path, aux_disp_grid, shift_dir)
+
+
+def compute_colocalisation_error(infile, max_shift, outdir, profile, raster_bin, raster_osm, subsampling, window_size):
+    shift_val, shift_pos, tiles, shift_mask, filtered_shift_mask = compute_shift(
+        raster_bin, raster_osm, window_size, max_shift
+    )
+    del raster_bin
+    del raster_osm
+    # Check & Create Shift result folder
+    shift_dir = outdir / f"{infile.stem}_MS{max_shift}_WS{window_size}_SS{subsampling}"
+    shift_dir.mkdir(exist_ok=True, parents=True)
+    tmp_profile = profile.copy()
+    tmp_profile.update({"count": 1, "dtype": shift_mask.dtype, "nodata": None})
+    with rasterio.open(
+            shift_dir / "shift_mask.tif", mode="w", **tmp_profile
+    ) as new_dataset:
+        new_dataset.write(shift_mask, 1)
+    out_filtered_shift = shift_dir / "filtered_shift_mask.tif"
+    with rasterio.open(out_filtered_shift, mode="w", **tmp_profile) as new_dataset:
+        new_dataset.write(filtered_shift_mask, 1)
+    #  Save np array and Plot Quiver
+    nparray_to_csv(shift_val[0], shift_dir / "row_offset_value.csv")
+    nparray_to_csv(shift_val[1], shift_dir / "column_offset_value.csv")
+    nparray_to_csv(shift_pos[0], shift_dir / "row_offset_position.csv")
+    nparray_to_csv(shift_pos[1], shift_dir / "column_offset_position.csv")
+    return shift_dir, shift_val
+
+
+def osm_build_vector(bin_profile, infile, osm_dataset, osm_tags, outdir, profile, proxy, raster_osm_path, raster_src,
+                     road_buffer_size, roi_list, water_vector):
+    if raster_osm_path is None:
+        raster_osm_path = outdir / f"{infile.stem}_osm.tif"
+    if Path(raster_osm_path).exists():
+        print("OSM binary raster already exists, skipping this step...")
+        raster_osm = rasterio.open(raster_osm_path).read(1)
+    else:
+        print("Create OSM binary raster")
+        raster_osm = get_osm_raster(
+            osm_tags,
+            osm_dataset,
+            raster_src,
+            roi_list,
+            outdir,
+            water_vector,
+            road_buffer_size,
+            proxy,
+        )
+        # Save file
+        tmp_profile = profile.copy()
+        tmp_profile.update(bin_profile)
+        with rasterio.open(raster_osm_path, mode="w", **tmp_profile) as new_dataset:
+            new_dataset.write(raster_osm, 1)
+    return raster_osm
+
+
+def night_raster_2_binary(infile, outdir, profile, radiance_threshold, raster_bin_path, raster_src):
+    bin_profile = {
+        "nodata": None,
+        "dtype": np.uint8,
+        "count": 1,
+        # For compressed 1 bit outputs
+        "nbits": 1,
+        "compress": "CCITTFAX4",
+    }
+    if raster_bin_path is None:
+        raster_bin_path = outdir / f"{infile.stem}_binary.tif"
+    if Path(raster_bin_path).exists():
+        print("Binary input raster already exists, skipping this step...")
+        raster_bin = rasterio.open(raster_bin_path).read(1)
+    else:
+        print("Binarization of input raster")
+        raster_bin = raster_to_bin(raster_src, S=radiance_threshold)
+        # Save
+        tmp_profile = profile.copy()
+        tmp_profile.update(bin_profile)
+        with rasterio.open(raster_bin_path, "w", **tmp_profile) as new_dataset:
+            new_dataset.write(raster_bin, 1)
+    return bin_profile, raster_bin
+
+
+def crop_night_raster(infile, outdir, profile, raster_src, roi_file):
+    if roi_file is not None:
+        raster_crop = outdir / f"{infile.stem}_cropped.tif"
+        raster_src, roi_list = crop_raster(roi_file, raster_src, raster_crop)
+        profile = raster_src.profile.copy()
+        infile = raster_crop
+    else:
+        roi_list = gpd.GeoSeries()
+    return infile, profile, raster_src, roi_list
 
 
 def main():
