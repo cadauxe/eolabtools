@@ -39,8 +39,7 @@ jobs:
       run: |
         conda create -n test_env
         conda activate test_env
-        conda install otb=8.0.1 -c iota2 -c conda-forge
-        conda install rasterio
+        conda install otb=8.0.1 rasterio -c iota2 -c conda-forge
         conda env update -f src/eolabtools/night_osm/requirements.yml 
         pip install -e . --no-deps
         pip install pylint mccabe
