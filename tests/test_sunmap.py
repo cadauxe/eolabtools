@@ -28,17 +28,8 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"--output_dir", f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst/"
     ]
 
-    try:
-        print(Path("/home/runner/work/eolabtools/eolabtools/tests/data/SunMapGen/test_out/test_1tile_low_res_lst/75-2021-0659-6861-LA93-0M50.tif").exists())
-        print(Path("/home/runner/work/eolabtools/eolabtools/tests/data/SunMapGen/test_data/test_1tile_low_res/75-2021-0659-6861-LA93-0M50.tif").exists())
-        subprocess.run("gdal_merge.py -o /home/runner/work/eolabtools/eolabtools/tests/data/SunMapGen/test_out/test_1tile_low_res_lst/75-2021-0659-6861-LA93-0M50.tif /home/runner/work/eolabtools/eolabtools/tests/data/SunMapGen/test_data/test_1tile_low_res/75-2021-0659-6861-LA93-0M50.tif", capture_output=True, text=True, check=True)
-        # subprocess.run(command, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        print(">>> STDOUT <<<")
-        print(e.stdout)
-        print(">>> STDERR <<<")
-        print(e.stderr)
-    # print(result.stderr)
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    print(result.stderr)
 
     os.remove(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst")
 
