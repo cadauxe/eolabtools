@@ -1,7 +1,9 @@
+from conftest import EOLabtoolsTestsPath
 import geopandas as gpd
 import rasterio
 import numpy as np
 import os
+import yaml
 from glob import glob
 
 import shutil
@@ -120,3 +122,17 @@ def compare_files(reference_dir : str, output_dir : str, tool : str):
         print("Both directories contain the same files.")
 
 
+def fill_config_nightosm(config_file : str, eolabtools_paths: EOLabtoolsTestsPath) :
+    '''
+    Fill NightOSMRegistration config file with local paths
+    '''
+    # Open config file
+    with open(config_file) as conf:
+        conf_dict = yaml.safe_load(conf)
+
+    for key in conf_dict.keys():
+        if any(ext in str(conf_dict[key]) for ext in ['.shp', '.osm.pbf', '.tif']):
+            conf_dict[key] = str(eolabtools_paths.referencedir) + "/tests/data" + conf_dict[key].split("tests/data")[-1]
+
+    with open(config_file, 'w') as outfile:
+        yaml.dump(conf_dict, outfile, default_flow_style=False)

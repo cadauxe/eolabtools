@@ -1,6 +1,6 @@
 from conftest import EOLabtoolsTestsPath
 import subprocess
-from test_utils import compare_files, clear_outdir, create_outdir
+from test_utils import compare_files, clear_outdir, create_outdir, fill_config_nightosm
 import pytest
 import os
 from pathlib import Path
@@ -12,9 +12,8 @@ def test_nightosm_rasterize_radiance(eolabtools_paths: EOLabtoolsTestsPath) -> N
     """
     TO DO
     """
+    fill_config_nightosm(f"{eolabtools_paths.nightosm_datadir}/config/config1.yml", eolabtools_paths)
     create_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_radiance")
-
-    ##Modifier dynamiquement les fichiers de configs
 
     command = [
         f"night_osm_image_registration",
@@ -38,8 +37,8 @@ def test_nightosm_rasterize_rgb(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     """
     TO DO
     """
+    fill_config_nightosm(f"{eolabtools_paths.nightosm_datadir}/config/config2.yml", eolabtools_paths)
     create_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_rgb")
-    ##Modifier dynamiquement les fichiers de configs
 
     command = [
         f"night_osm_image_registration",
@@ -63,8 +62,8 @@ def test_nightosm_register_radiance(eolabtools_paths: EOLabtoolsTestsPath) -> No
     """
     TO DO
     """
+    fill_config_nightosm(f"{eolabtools_paths.nightosm_datadir}/config/config3.yml", eolabtools_paths)
     create_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_radiance")
-    ##Modifier dynamiquement les fichiers de configs
 
     command = [
         f"night_osm_image_registration",
@@ -88,8 +87,8 @@ def test_nightosm_register_rgb(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     """
     TO DO
     """
+    fill_config_nightosm(f"{eolabtools_paths.nightosm_datadir}/config/config4.yml", eolabtools_paths)
     create_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_rgb")
-    ##Modifier dynamiquement les fichiers de configs
 
     command = [
         f"night_osm_image_registration",
@@ -113,7 +112,6 @@ def test_nightosm_vector(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     TO DO
     """
     create_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_vector")
-    ##Modifier dynamiquement les fichiers de configs
 
     command = [
         f"night_osm_vector_registration",
@@ -137,8 +135,8 @@ def test_nightosm_simple_config(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     """
     TO DO
     """
+    fill_config_nightosm(f"{eolabtools_paths.nightosm_datadir}/config/config5.yml", eolabtools_paths)
     create_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_simple_config")
-    ##Modifier dynamiquement les fichiers de configs
 
     command = [
         f"night_osm_image_registration",

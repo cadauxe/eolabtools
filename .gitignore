@@ -5,3 +5,4 @@
 *.dbf
 *.png
 *.pyc
+tests/data/NightOSMReg/test_data/config/*

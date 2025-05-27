@@ -18,6 +18,9 @@ class EOLabtoolsTestsPath():
     def __post_init__(self):
 
         test_data = self.project_dir / "tests" / "data"
+
+        self.referencedir = self.project_dir
+
         self.sunmap_ref = test_data / "SunMapGen" / "reference_results"
         self.sunmap_outdir = test_data / "SunMapGen" / "test_out"
         self.sunmap_datadir = test_data / "SunMapGen" / "test_data"
