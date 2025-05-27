@@ -205,10 +205,10 @@ def run(
         new_dataset.write(filtered_shift_mask, 1)
 
     #  Save np array and Plot Quiver
-    nparray_to_csv(shift_val[0], shift_dir / "Decalage_en_ligne_valeur.csv")
-    nparray_to_csv(shift_val[1], shift_dir / "Decalage_en_colonne_valeur.csv")
-    nparray_to_csv(shift_pos[0], shift_dir / "Decalage_en_ligne_position.csv")
-    nparray_to_csv(shift_pos[1], shift_dir / "Decalage_en_colonne_position.csv")
+    nparray_to_csv(shift_val[0], shift_dir / "row_offset_value.csv")
+    nparray_to_csv(shift_val[1], shift_dir / "column_offset_value.csv")
+    nparray_to_csv(shift_pos[0], shift_dir / "row_offset_position.csv")
+    nparray_to_csv(shift_pos[1], shift_dir / "column_offset_position.csv")
 
     """
     4. Compute displacement grid (size of raster_src)

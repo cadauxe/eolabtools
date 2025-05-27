@@ -96,7 +96,7 @@ In a directory `Shifts_WSxx` (WS for Window Size) :
 
 `shifted_cropped_raster_MSxx_SubSxx.tif` : the input raster shifted in x and y according to the `DisplacementGrid_MSxx_SubSxx.tif` (MS for Max Shift and SubS for subsampling). Band 1 of the displacement grid corresponds to X shift, and band 2 to Y shift.
 
-`decalage_en_colonne/ligne_position/valeur.csv` : value and position (center of subtile) of shifts before MS filtering.
+`column/row_offset_position/value.csv` : value and position (center of subtile) of shifts before MS filtering.
 
 `shift_mask.tif` : mask with a shift arrow in the center of each subtile before filtering
 
@@ -191,7 +191,7 @@ night_osm_image_registration -o /tmp/my_output/ --config /tmp/output/my_config.y
 In a directory `XXXX_MS_WS_SS/` (MS=max shift, WS=windows size, SS=sub sampling) :
 
 - `<image_basename>_shifted.tif` : input ref or aux image shifted in x and y using `displacement_grid.tif`. Band 1 of the displacement grid corresponds to X shift, and band 2 to Y shift.
-- `decalage_en_colonne/ligne_position/valeur.csv` : value and position (center of subtile) of shifts before MS filtering.
+- `column/row_offset_position/value.csv` : value and position (center of subtile) of shifts before MS filtering.
 - `shift_mask.tif` : mask with a shift arrow in the center of each subtile before filtering
 - `filtered_shift_mask.tif` : mask with a shift arrow in the center of each subtile after filtering
 
