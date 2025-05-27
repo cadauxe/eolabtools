@@ -39,6 +39,7 @@ jobs:
       run: |
         conda create -n test_env
         conda activate test_env
+        conda install -c conda-forge geos=3.10.1 boost=1.78.0
         conda install otb=8.0.1 -c iota2
         conda install rasterio
         conda env update -f src/eolabtools/night_osm/requirements.yml 
