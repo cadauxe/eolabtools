@@ -10,5 +10,6 @@ dependencies:
   - opencv
   - pytest
   - pytest-cov
+  - ephem
   - matplotlib
   - pyyaml
