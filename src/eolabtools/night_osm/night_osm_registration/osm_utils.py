@@ -149,8 +149,8 @@ def get_osm_raster(
         gdf_water = gpd.read_file(water_file, bbox)
     else:
         #Raise pyrosm.py:767: UserWarning: Could not find any OSM data for given area. ERROR
-        gdf_water = osm.get_data_by_custom_criteria(custom_filter={"water": ["river", "basin"]})
-    if raster_src.crs != 4326:
+        gdf_water = osm.get_data_by_custom_criteria(custom_filter={"water": ["river"]})
+    if raster_src.crs != 4326 and gdf_water is not None :
         gdf_water = gdf_water.to_crs(raster_src.crs)
 
     gdf_negative = pd.concat((gdf_negative, gdf_water))
