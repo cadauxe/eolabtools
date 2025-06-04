@@ -52,4 +52,5 @@ jobs:
       run: |
         conda activate test_env
         which gdal_merge.py
+        echo "/usr/share/miniconda/envs/test_env/bin" >> $GITHUB_PATH
         pytest -s --cov-fail-under=65
