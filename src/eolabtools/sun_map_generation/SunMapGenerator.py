@@ -431,7 +431,8 @@ def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_ch
         width = src.width
         profile = src.profile
 
-    times = [datetime.strptime(date_string[-17:-4], "%Y%m%d-%H%M") for date_string in files]
+    tz = pytz.timezone(f'Europe/{area}')
+    times = [tz.localize(datetime.strptime(date_string[-17:-4], "%Y%m%d-%H%M")) for date_string in files]
     timestamps = [int(time.timestamp()) for time in times]
 
     # occurrence des changements
@@ -500,14 +501,11 @@ def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_ch
     sun_time_vector[cols] = sun_time_vector['code'].apply(get_quadruplet, dict=dictionnary)
 
     sun_time_vector = sun_time_vector.drop(columns='code')
-    # sun_time_vector[cols] = sun_time_vector[cols].applymap(
-    #     lambda x: pd.to_datetime(x, unit='s', utc=True).tz_convert(f'Europe/{area}').tz_localize(None) if x > 0 else NaT if x == -1 else times[0].replace(hour=23, minute=59,
-    #                                                                                              second=59))
     sun_time_vector[cols] = sun_time_vector[cols].applymap(
-        lambda x: pd.to_datetime(x, unit='s', utc=True).tz_localize(
-            None) if x > 0 else NaT if x == -1 else times[0].replace(hour=23, minute=59,
-                                                                     second=59))
+        lambda x: pd.to_datetime(x, unit='s', utc=True).tz_convert(f'Europe/{area}').tz_localize(None) if x > 0 else NaT if x == -1 else times[0].replace(hour=23, minute=59,
+                                                                                                 second=59))
     final_name = out_file.replace('_dissolved', '')
+    sun_time_vector[cols] = sun_time_vector[cols].astype(str)
     sun_time_vector.to_file(final_name, driver="GPKG")
     os.remove(out_file)
 
