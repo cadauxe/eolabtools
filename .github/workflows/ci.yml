@@ -51,4 +51,5 @@ jobs:
       shell: bash -l {0}
       run: |
         conda activate test_env
+        which gdal_merge.py
         pytest -s --cov-fail-under=65
