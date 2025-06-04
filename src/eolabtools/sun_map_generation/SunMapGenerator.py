@@ -241,12 +241,12 @@ def execute_merge_command(dsm_file, neighbors, output_dir):
     # define command to execute
     merged_file = output_dir + dsm_file.split('/')[-1]
     assert os.path.exists(dsm_file), f"Missing input: {dsm_file}"
-    command = ["python", "-m", "gdal_merge",  "-o" , merged_file, dsm_file] + neighbors
+    command = ["gdal_merge.py",  "-o" , merged_file, dsm_file] + neighbors
     command = " ".join(command)
     # _logger.info(command)
     try:
-        gdal.Warp(merged_file, [dsm_file], format='GTiff', srcNodata=0, dstNodata=0)
-        # subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        # gdal.Warp(merged_file, [dsm_file], format='GTiff', srcNodata=0, dstNodata=0)
+        subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
         print("STDOUT:\n", e.stdout)
         print("STDERR:\n", e.stderr)
