@@ -697,60 +697,50 @@ if __name__ == '__main__':
                 # add to list
                 paths.append(line)
 
-        with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
-
-            all_files_created = list(executor.map(partial(generate_sun_map,
-                                                          dsm_tiles=dsm_tiles,
-                                                          area=area,
-                                                          start_date=start_date,
-                                                          end_date=end_date,
-                                                          step_date=step_date,
-                                                          start_time=start_time,
-                                                          end_time=end_time,
-                                                          step_time=step_time,
-                                                          output_dir=output_dir,
-                                                          time_az_el=time_azimuth_elevation_computation,
-                                                          time_mask_exec=time_shadow_mask_execution),
-                                                  paths))
-
-        if True:
-            _logger.info("Creating daily shadow maps")
-            path_list_by_days = list(itertools.chain.from_iterable(all_files_created))
-            with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
-                daily_sun_map_paths = list(executor.map(partial(generate_daily_shadow_maps,
-                                                                   time_process=time_daily_sun_percentage),
-                                                           path_list_by_days))
-            # generate_daily_shadow_maps(all_files_created, True, output_dir)
-
-        # create vector with sun times (first tile and first day for now)
-        if True:
-            _logger.info("Creating sun time vector")
-            with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
-                sun_time_vector_paths = list(executor.map(partial(generate_sun_time_vector,
-                                                                  area = area,
-                                                                  occ_changes=nb_changes_a_day,
-                                                                  time_polygonize=time_polygonize_coded_raster,
-                                                                  time_dissolve=time_dissolve_geometries),
-                                                          all_files_created))
-            # generate_sun_time_vector(all_files_created[0][0], output_dir)
-
-        _logger.info("Done.")
-
     elif dsm_file[-3:] == 'tif':
-
-        all_files_created = generate_sun_map(dsm_file, dsm_tiles, area, start_date, end_date, step_date, start_time, end_time, step_time, output_dir,
-                                             time_azimuth_elevation_computation, time_shadow_mask_execution)
-
-        if True:
-            _logger.info("Creating daily shadow maps")
-            generate_daily_shadow_maps(all_files_created[0], time_daily_sun_percentage)
-
-        _logger.info("Done.")
+        paths = [dsm_file]
 
     else:
         _logger.info("DSM file has incorrect extension")
         parser.print_help()
         sys.exit(1)
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
+
+        all_files_created = list(executor.map(partial(generate_sun_map,
+                                                      dsm_tiles=dsm_tiles,
+                                                      area=area,
+                                                      start_date=start_date,
+                                                      end_date=end_date,
+                                                      step_date=step_date,
+                                                      start_time=start_time,
+                                                      end_time=end_time,
+                                                      step_time=step_time,
+                                                      output_dir=output_dir,
+                                                      time_az_el=time_azimuth_elevation_computation,
+                                                      time_mask_exec=time_shadow_mask_execution),
+                                              paths))
+
+    if True:
+        _logger.info("Creating daily shadow maps")
+        path_list_by_days = list(itertools.chain.from_iterable(all_files_created))
+        with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
+            daily_sun_map_paths = list(executor.map(partial(generate_daily_shadow_maps,
+                                                            time_process=time_daily_sun_percentage),
+                                                    path_list_by_days))
+        # generate_daily_shadow_maps(all_files_created, True, output_dir)
+
+    # create vector with sun times (first tile and first day for now)
+    if True:
+        _logger.info("Creating sun time vector")
+        with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
+            sun_time_vector_paths = list(executor.map(partial(generate_sun_time_vector,
+                                                              area=area,
+                                                              occ_changes=nb_changes_a_day,
+                                                              time_polygonize=time_polygonize_coded_raster,
+                                                              time_dissolve=time_dissolve_geometries),
+                                                      all_files_created))
+    _logger.info("Done.")
 
     # remove mask files
     if not args.save_masks:
