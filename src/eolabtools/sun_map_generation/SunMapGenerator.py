@@ -244,7 +244,12 @@ def execute_merge_command(dsm_file, neighbors, output_dir):
     command = ["python", "-m", "gdal_merge.py",  "-o" , merged_file, dsm_file] + neighbors
     command = " ".join(command)
     # _logger.info(command)
-    subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+    try:
+        subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print("STDOUT:\n", e.stdout)
+        print("STDERR:\n", e.stderr)
+        raise
 
     return merged_file
 
