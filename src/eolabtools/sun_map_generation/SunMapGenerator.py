@@ -245,7 +245,6 @@ def execute_merge_command(dsm_file, neighbors, output_dir):
     command = " ".join(command)
     # _logger.info(command)
     try:
-        # gdal.Warp(merged_file, [dsm_file], format='GTiff', srcNodata=0, dstNodata=0)
         subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
         print("STDOUT:\n", e.stdout)
