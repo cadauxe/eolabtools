@@ -1,0 +1,9 @@
+numpy
+matplotlib
+pyrosm
+rasterio
+scikit-image
+opencv-python
+shapely
+
+
