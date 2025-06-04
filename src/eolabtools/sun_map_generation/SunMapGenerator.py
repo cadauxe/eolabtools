@@ -2,6 +2,7 @@
 import argparse
 import concurrent.futures
 import sys
+from pandas import NaT
 from functools import partial
 import itertools
 
@@ -414,7 +415,7 @@ def code_raster(stacked_array):
     return new_array, quadruplet_dict
 
 
-def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, occ_changes=4):
+def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_changes=4):
 
     files = files[0] # first day for now
     prefix = files[0][:-9]
@@ -494,10 +495,10 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
 
     sun_time_vector = sun_time_vector.drop(columns='code')
     sun_time_vector[cols] = sun_time_vector[cols].applymap(
-        lambda x: pd.to_datetime(x, unit='s') if x > 0 else np.nan if x == -1 else times[0].replace(hour=23, minute=59,
+        lambda x: pd.to_datetime(x, unit='s', utc=True).tz_convert(f'Europe/{area}').tz_localize(None) if x > 0 else NaT if x == -1 else times[0].replace(hour=23, minute=59,
                                                                                                  second=59))
     final_name = out_file.replace('_dissolved', '')
-    sun_time_vector.to_file(final_name)
+    sun_time_vector.to_file(final_name, driver="GPKG")
     os.remove(out_file)
 
     return final_name
@@ -712,7 +713,7 @@ if __name__ == '__main__':
             _logger.info("Creating sun time vector")
             with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
                 sun_time_vector_paths = list(executor.map(partial(generate_sun_time_vector,
-                                                                  output_dir=output_dir,
+                                                                  area = area,
                                                                   occ_changes=nb_changes_a_day,
                                                                   time_polygonize=time_polygonize_coded_raster,
                                                                   time_dissolve=time_dissolve_geometries),
