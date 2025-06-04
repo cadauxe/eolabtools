@@ -240,6 +240,7 @@ def execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_siz
 def execute_merge_command(dsm_file, neighbors, output_dir):
     # define command to execute
     merged_file = output_dir + dsm_file.split('/')[-1]
+    assert os.path.exists(dsm_file), f"Missing input: {dsm_file}"
     command = ["gdal_merge.py",  "-o" , merged_file, dsm_file] + neighbors
     command = " ".join(command)
     # _logger.info(command)
