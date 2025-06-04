@@ -88,7 +88,7 @@ def compare_gpkg(file1, file2):
                 else : # Attribute check
                     val1 = getattr(row1, attr_name)
                     val2 = getattr(row2, attr_name)
-                    if not((pd.isna(val1) and pd.isna(val2)) or (val1 == val2)):
+                    if not((pd.isna(val1) and pd.isna(val2)) or (str(val1) == str(val2))):
                         print(f"  Row {idx}: Attribute '{attr_name}' mismatch")
                         print(f"    File1: {val1}")
                         print(f"    File2: {val2}")
