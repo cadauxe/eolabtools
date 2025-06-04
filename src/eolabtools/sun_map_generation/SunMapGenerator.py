@@ -436,7 +436,6 @@ def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_ch
     timestamps = [int(time.timestamp()) for time in times]
 
     # occurrence des changements
-
     raster_arrays = []
     for path in files:
         with rasterio.open(path) as src:
@@ -472,16 +471,8 @@ def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_ch
     _logger.info("End polygonization")
 
     # dissolve vector
-    _logger.info("Starting dissolving")
-    in_file = out_file
-    out_file = in_file.replace('coded_geoms', 'sun_times_dissolved')
-    start_dissolve_time = time.time()
-    command = f'ogr2ogr {out_file} {in_file} -dialect sqlite -sql "SELECT ST_Union(geom), code FROM coded_geoms GROUP BY code" -f "GPKG"'
-    subprocess.run(command, shell=True)
-    end_dissolve_time = time.time() - start_dissolve_time
-    time_dissolve.set(time_dissolve.value + end_dissolve_time)
-    _logger.info("End dissolving")
-    
+    in_file, out_file = dissolve_vector(out_file, time_dissolve)
+
     # remove unnecessary files
     [os.remove(filename) for filename in glob.glob(f"{in_file}*")]
     os.remove(prefix.replace('hillshade', 'coded_raster') + '.tif')
@@ -516,6 +507,19 @@ def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_ch
     os.remove(out_file)
 
     return final_name
+
+
+def dissolve_vector(out_file, time_dissolve):
+    _logger.info("Starting dissolving")
+    in_file = out_file
+    out_file = in_file.replace('coded_geoms', 'sun_times_dissolved')
+    start_dissolve_time = time.time()
+    command = f'ogr2ogr {out_file} {in_file} -dialect sqlite -sql "SELECT ST_Union(geom), code FROM coded_geoms GROUP BY code" -f "GPKG"'
+    subprocess.run(command, shell=True)
+    end_dissolve_time = time.time() - start_dissolve_time
+    time_dissolve.set(time_dissolve.value + end_dissolve_time)
+    _logger.info("End dissolving")
+    return in_file, out_file
 
 
 def raster_stack(changes_0_to_1, changes_1_to_0, files, height, occ_changes, timestamps, width):
