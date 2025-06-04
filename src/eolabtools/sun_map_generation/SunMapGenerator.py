@@ -2,6 +2,7 @@
 import argparse
 import concurrent.futures
 import sys
+import pandas as pd
 from functools import partial
 import itertools
 
@@ -239,10 +240,16 @@ def execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_siz
 def execute_merge_command(dsm_file, neighbors, output_dir):
     # define command to execute
     merged_file = output_dir + dsm_file.split('/')[-1]
+    assert os.path.exists(dsm_file), f"Missing input: {dsm_file}"
     command = ["gdal_merge.py",  "-o" , merged_file, dsm_file] + neighbors
     command = " ".join(command)
     # _logger.info(command)
-    subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+    try:
+        subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print("STDOUT:\n", e.stdout)
+        print("STDERR:\n", e.stderr)
+        raise
 
     return merged_file
 
@@ -414,7 +421,7 @@ def code_raster(stacked_array):
     return new_array, quadruplet_dict
 
 
-def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, occ_changes=4):
+def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_changes=4):
 
     files = files[0] # first day for now
     prefix = files[0][:-9]
@@ -424,7 +431,8 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
         width = src.width
         profile = src.profile
 
-    times = [datetime.strptime(date_string[-17:-4], "%Y%m%d-%H%M") for date_string in files]
+    tz = pytz.timezone(f'Europe/{area}')
+    times = [tz.localize(datetime.strptime(date_string[-17:-4], "%Y%m%d-%H%M")) for date_string in files]
     timestamps = [int(time.timestamp()) for time in times]
 
     # occurrence des changements
@@ -493,11 +501,18 @@ def generate_sun_time_vector(files, output_dir, time_polygonize, time_dissolve, 
     sun_time_vector[cols] = sun_time_vector['code'].apply(get_quadruplet, dict=dictionnary)
 
     sun_time_vector = sun_time_vector.drop(columns='code')
-    sun_time_vector[cols] = sun_time_vector[cols].applymap(
-        lambda x: pd.to_datetime(x, unit='s') if x > 0 else np.nan if x == -1 else times[0].replace(hour=23, minute=59,
-                                                                                                 second=59))
+
+    def safe_convert(x):
+        if x > 0:
+            return pd.to_datetime(x, unit='s', utc=True).tz_convert(f'Europe/{area}').tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
+        elif x == -1:
+            return pd.NaT
+        else:
+            return times[0].replace(hour=23, minute=59, second=59).strftime("%Y-%m-%d %H:%M:%S")
+
+    sun_time_vector[cols] = sun_time_vector[cols].applymap(safe_convert)
     final_name = out_file.replace('_dissolved', '')
-    sun_time_vector.to_file(final_name)
+    sun_time_vector.to_file(final_name, driver="GPKG")
     os.remove(out_file)
 
     return final_name
@@ -712,7 +727,7 @@ if __name__ == '__main__':
             _logger.info("Creating sun time vector")
             with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
                 sun_time_vector_paths = list(executor.map(partial(generate_sun_time_vector,
-                                                                  output_dir=output_dir,
+                                                                  area = area,
                                                                   occ_changes=nb_changes_a_day,
                                                                   time_polygonize=time_polygonize_coded_raster,
                                                                   time_dissolve=time_dissolve_geometries),

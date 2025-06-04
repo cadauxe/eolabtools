@@ -7,6 +7,9 @@ Sun Map Generation
 #Change installation procedure
 #TO DO
 
+
+Dire à l'utilisateur qu'il faut que son shapefile s'appelle TILE_NAME
+
 Sun Map Generation is a tool for generating sunshine maps for a specific area at a specific time.
 
 Installing environment
@@ -16,9 +19,12 @@ To install the required libraries, please launch the following commands :
 
 .. code-block:: console
 
-    ml conda
-    conda env create -f requirements.yml
+    conda create -n carte_enso
     conda activate carte_enso
+    conda install python=3.8.13 libgdal=3.5.0
+    pip install . (or pip install the wheel if built)
+    pip install georastertools --no-binary rasterio
+
 
 Content
 =======
