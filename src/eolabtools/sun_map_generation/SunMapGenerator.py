@@ -241,7 +241,7 @@ def execute_merge_command(dsm_file, neighbors, output_dir):
     # define command to execute
     merged_file = output_dir + dsm_file.split('/')[-1]
     assert os.path.exists(dsm_file), f"Missing input: {dsm_file}"
-    command = ["gdal_merge",  "-o" , merged_file, dsm_file] + neighbors
+    command = ["python", "-m", "gdal_merge",  "-o" , merged_file, dsm_file] + neighbors
     command = " ".join(command)
     # _logger.info(command)
     try:
