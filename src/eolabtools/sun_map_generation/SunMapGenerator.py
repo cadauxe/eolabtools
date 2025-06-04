@@ -2,7 +2,7 @@
 import argparse
 import concurrent.futures
 import sys
-from pandas import NaT
+import pandas as pd
 from functools import partial
 import itertools
 
@@ -501,11 +501,17 @@ def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_ch
     sun_time_vector[cols] = sun_time_vector['code'].apply(get_quadruplet, dict=dictionnary)
 
     sun_time_vector = sun_time_vector.drop(columns='code')
-    sun_time_vector[cols] = sun_time_vector[cols].applymap(
-        lambda x: pd.to_datetime(x, unit='s', utc=True).tz_convert(f'Europe/{area}').tz_localize(None) if x > 0 else NaT if x == -1 else times[0].replace(hour=23, minute=59,
-                                                                                                 second=59))
+
+    def safe_convert(x):
+        if x > 0:
+            return pd.to_datetime(x, unit='s', utc=True).tz_convert(f'Europe/{area}').tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
+        elif x == -1:
+            return pd.NaT
+        else:
+            return times[0].replace(hour=23, minute=59, second=59).strftime("%Y-%m-%d %H:%M:%S")
+
+    sun_time_vector[cols] = sun_time_vector[cols].applymap(safe_convert)
     final_name = out_file.replace('_dissolved', '')
-    sun_time_vector[cols] = sun_time_vector[cols].astype(str)
     sun_time_vector.to_file(final_name, driver="GPKG")
     os.remove(out_file)
 
