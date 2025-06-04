@@ -21,6 +21,7 @@ fiona==1.8.21
 fonttools==4.44.0
 frozenlist==1.4.1
 fsspec==2023.12.2
+gdal==3.5.0
 geographiclib==2.0
 geopandas==0.13
 geopy==2.4.0

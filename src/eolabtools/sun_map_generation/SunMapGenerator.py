@@ -240,10 +240,16 @@ def execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_siz
 def execute_merge_command(dsm_file, neighbors, output_dir):
     # define command to execute
     merged_file = output_dir + dsm_file.split('/')[-1]
+    assert os.path.exists(dsm_file), f"Missing input: {dsm_file}"
     command = ["gdal_merge.py",  "-o" , merged_file, dsm_file] + neighbors
     command = " ".join(command)
     # _logger.info(command)
-    subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+    try:
+        subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print("STDOUT:\n", e.stdout)
+        print("STDERR:\n", e.stderr)
+        raise
 
     return merged_file
 
@@ -494,9 +500,13 @@ def generate_sun_time_vector(files, area, time_polygonize, time_dissolve, occ_ch
     sun_time_vector[cols] = sun_time_vector['code'].apply(get_quadruplet, dict=dictionnary)
 
     sun_time_vector = sun_time_vector.drop(columns='code')
+    # sun_time_vector[cols] = sun_time_vector[cols].applymap(
+    #     lambda x: pd.to_datetime(x, unit='s', utc=True).tz_convert(f'Europe/{area}').tz_localize(None) if x > 0 else NaT if x == -1 else times[0].replace(hour=23, minute=59,
+    #                                                                                              second=59))
     sun_time_vector[cols] = sun_time_vector[cols].applymap(
-        lambda x: pd.to_datetime(x, unit='s', utc=True).tz_convert(f'Europe/{area}').tz_localize(None) if x > 0 else NaT if x == -1 else times[0].replace(hour=23, minute=59,
-                                                                                                 second=59))
+        lambda x: pd.to_datetime(x, unit='s', utc=True).tz_localize(
+            None) if x > 0 else NaT if x == -1 else times[0].replace(hour=23, minute=59,
+                                                                     second=59))
     final_name = out_file.replace('_dissolved', '')
     sun_time_vector.to_file(final_name, driver="GPKG")
     os.remove(out_file)
