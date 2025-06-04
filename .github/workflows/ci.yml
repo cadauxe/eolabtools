@@ -46,6 +46,7 @@ jobs:
         conda activate test_env
         pip install georastertools --no-binary rasterio
         pip install . 
+        conda install -c conda-forge gdal=3.5.0 -y
         pip install pylint mccabe
     - name: test
       shell: bash -l {0}
