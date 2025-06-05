@@ -1,4 +1,4 @@
-name: detection_orientation
+name: detect_or_5_06
 channels:
   - defaults
 dependencies:
@@ -195,7 +195,6 @@ dependencies:
       - rtree==1.0.1
       - scikit-learn==1.2.1
       - scipy==1.10.1
-      - sklearn==0.0.post1
       - stack-data==0.6.2
       - threadpoolctl==3.1.0
       - traitlets==5.9.0

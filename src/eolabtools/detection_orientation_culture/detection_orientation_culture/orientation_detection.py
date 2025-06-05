@@ -211,22 +211,23 @@ def detect_multiple_orientations(
     centroids.columns = ['x', 'y']
 
     angles = pd_lines.applymap(partial(compute_angles, l_right=orientation, ortho=angle_ortho))
+
     # angles = angles.to_numpy().reshape(-1)
 
     # # We compute the angles histogram and count the peaks ie the clusters of segments
-    hist, bins = np.histogram(pd.DataFrame([a if a < 160 else 180 - a for a in angles[0]]), bins=9,
-                                range=(0, 180))
-    
-    #penalty = hist[0] > min_nb_line_per_parcelle and hist[-1] > min_nb_line_per_parcelle
-    num_orient = len(hist[hist > min_nb_line_per_parcelle])# - penalty
+    hist, bins = np.histogram(pd.DataFrame([a if a < 160 else 180 - a for a in angles[0]]), bins=int(10 // 0.25),
+                                range=(0, 10))
+
+    penalty = hist[0] > min_nb_line_per_parcelle and hist[-1] > min_nb_line_per_parcelle
+    num_orient = len(hist[hist > min_nb_line_per_parcelle]) - penalty
 
     if num_orient < 2:
         return num_orient, None
 
-    _logger.info(f"[{parcel_id}] Multiple orientations found ({num_orient})")
+    _logger.info(f"[{parcel_id}] Multiple orientations found")
 
-    #if penalty:
-    angles = angles.applymap(transform)
+    if penalty:
+        angles = angles.applymap(transform)
 
     data = pd.concat([angles, centroids], axis=1)
     data.columns = data.columns.astype('str')
@@ -471,6 +472,7 @@ def compute_orientation(
     within = FLD.within(pol.buffer(erosion))
     inter = FLD.loc[within]
 
+    print(inter)
     # Check if any segment where detected in the polygon
     if inter.shape[0] < 1:
         _logger.info(f"[{ID_PARCEL}] Skipping parcel: no segment to compute the parcel orientation")
@@ -663,6 +665,11 @@ def orientation_worker(
     ))
 
     FLD = gpd.GeoDataFrame(segments, crs=crs)
+    # print(FLD)
+    # print('read')
+    # FLD = gpd.read_file("tests/data/DetecOrCult/reference_results/2017_final/kept_lines.shp")
+    # print('finished read')
+    # print(FLD)
     FLD.crs = rpg.crs
     
     fld_dur = time.process_time() - start_time_fld
@@ -1245,7 +1252,7 @@ def get_rpg_patches(
                         with rasterio.open(img_dataset) as dataset:
                             num_rows, num_cols = dataset.shape
 
-                        windows = [rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
+                        windows = [rasterio.windows.Window(i, j, min(num_rows-i, patch_size), min(num_cols-j, patch_size))
                                 for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)]
 
                         res = list(executor.map(partial(split_windows,
@@ -1290,10 +1297,12 @@ def main(args):
     
     img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
                          ) if os.path.isdir(args.img) else args.img
+
     _logger.info(f"Image dataset size : {len(img_dataset)}")
 
     with rasterio.open(img_dataset[0] if isinstance(img_dataset, list) else img_dataset) as dataset:
         num_rows, num_cols = dataset.shape
+
     manager = Manager()
     time_split = manager.Value("time_split", 0.)
     time_slope_aspect = manager.Value("time_slope_aspect", 0.)
