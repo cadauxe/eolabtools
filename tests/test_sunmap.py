@@ -3,6 +3,9 @@ import subprocess
 from test_utils import compare_files
 import pytest
 import os
+from pathlib import Path
+import subprocess
+import sys
 
 @pytest.mark.ci
 def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
@@ -25,8 +28,15 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"--output_dir", f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst/"
     ]
 
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
-    print(result.stderr)
+    try :
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print("❌ Subprocess failed!")
+        print("Return code:", e.returncode)
+        print("=== STDOUT ===")
+        print(e.stdout)
+        print("=== STDERR ===")
+        print(e.stderr)
 
     os.remove(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst")
 
