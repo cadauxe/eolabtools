@@ -39,7 +39,7 @@ def extend_line(line, extension_distance, where='both'):
     end_point = line.coords[-1]
     length_line = line.length
 
-    if where =='both':
+    if where == 'both':
         # extension at start
         new_start = (start_point[0] + (start_point[0] - end_point[0]) / length_line * extension_distance,
                      start_point[1] + (start_point[1] - end_point[1]) / length_line * extension_distance)
@@ -191,8 +191,8 @@ def create_linestring(seg, transform) -> Dict[shapely.geometry.linestring.LineSt
         int(seg[0]),
     )
     pt2 = rasterio.transform.xy(
-        transform, 
-        int(seg[3]), 
+        transform,
+        int(seg[3]),
         int(seg[2])
     )
 
@@ -203,11 +203,11 @@ def create_linestring(seg, transform) -> Dict[shapely.geometry.linestring.LineSt
     return {"geometry": l1, "width": 1}
 
 
-
-def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[float, float, float, shapely.geometry.linestring.LineString]:
+def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[
+    float, float, float, shapely.geometry.linestring.LineString]:
     """
         Compute the norm of the input segment
-        
+
         Parameters
         ----------
         ls: the input LineString
@@ -222,7 +222,7 @@ def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[flo
 
     if ls.type == "MultiLineString":
         coord = ls[0].coords
-    else :
+    else:
         coord = ls.coords
     coord = ls.coords
     x1 = coord[0][0]
@@ -230,7 +230,7 @@ def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[flo
     x2 = coord[1][0]
     y2 = coord[1][1]
     # to get the coordinates in the same direction we set x1 to be the
-    if x2 < x1 :
+    if x2 < x1:
         x1_bp = x1
         x2_bp = x2
         y1_bp = y1
@@ -250,14 +250,14 @@ def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[flo
 
 
 def get_mean_slope_aspect(
-    pol: shapely.geometry.polygon.Polygon, 
-    slope: str, 
-    aspect: str, 
-    time_slope_aspect
+        pol: shapely.geometry.polygon.Polygon,
+        slope: str,
+        aspect: str,
+        time_slope_aspect
 ):
     """
         Get mean slope and aspect for the input parcel
-        
+
         Parameters
         ----------
         pol: the input Polygon
@@ -303,7 +303,7 @@ def filter_segments(segments: gpd.GeoDataFrame, min_len_line: float):
     """
 
     df_norm_vectxy = segments.geometry.apply(get_norm_linestring)
-    
+
     vectx = [e[1] for e in df_norm_vectxy.to_list()]
     vecty = [e[2] for e in df_norm_vectxy.to_list()]
     # X
@@ -321,10 +321,10 @@ def filter_segments(segments: gpd.GeoDataFrame, min_len_line: float):
 
     interval = 0
     list_filtered = list(filter(lambda t: t[1] > (min_outlier_x - interval) and \
-            t[1] < (max_outlier_x + interval) and \
-            t[2] > (min_outlier_y - interval) and \
-            t[2] < (max_outlier_y + interval) and \
-            t[0] > min_len_line, df_norm_vectxy.to_list()))
+                                          t[1] < (max_outlier_x + interval) and \
+                                          t[2] > (min_outlier_y - interval) and \
+                                          t[2] < (max_outlier_y + interval) and \
+                                          t[0] > min_len_line, df_norm_vectxy.to_list()))
 
     # continues only if there are lines kept in the list (at least 2 to compute statistics)
     len_lines = [e[0] for e in list_filtered]
@@ -336,15 +336,15 @@ def filter_segments(segments: gpd.GeoDataFrame, min_len_line: float):
 
 
 def split_img_dataset(
-    img_path: str, 
-    RPG: gpd.GeoDataFrame, 
-    patch_size: int, 
-    list_rpg_patches, 
-    time_split
+        img_path: str,
+        RPG: gpd.GeoDataFrame,
+        patch_size: int,
+        list_rpg_patches,
+        time_split
 ):
     """
         Append the patches to the list of patches for the parallelized processes.
-        
+
         Parameters
         ----------
         img_path: the input image path
@@ -362,8 +362,8 @@ def split_img_dataset(
             src_transform = dataset.transform
             dataset_bb = shapely.geometry.box(*dataset.bounds)
 
-            windows = [rasterio.windows.Window(i, j, min(num_rows-i, patch_size), min(num_cols-j, patch_size))
-                for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)]
+            windows = [rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
+                       for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)]
 
             for window in windows:
                 bb = shapely.geometry.box(*rasterio.windows.bounds(window, src_transform))
@@ -383,15 +383,15 @@ def split_img_dataset(
 
 
 def split_img_borders(
-    img_path: str, 
-    RPG: gpd.GeoDataFrame, 
-    patch_size: int, 
-    list_on_border, 
-    time_split
+        img_path: str,
+        RPG: gpd.GeoDataFrame,
+        patch_size: int,
+        list_on_border,
+        time_split
 ):
     """
         Append the border patches to the list of border patches for the parallelized processes.
-        
+
         Parameters
         ----------
         img_path: the input image path
@@ -407,18 +407,18 @@ def split_img_borders(
         src_transform = dataset.transform
         dataset_bb = shapely.geometry.box(*dataset.bounds)
 
-    windows = [rasterio.windows.Window(i, j, min(num_rows-i, patch_size), min(num_cols-j, patch_size))
-        for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)] if patch_size else None
+    windows = [rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
+               for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)] if patch_size else None
 
     # Get the polygons intersected by but not within the image extent ie on the image borders
     border_dataset = RPG.intersects(dataset_bb) & ~RPG.within(dataset_bb)
     if windows:
-        for i,window in enumerate(windows):
+        for i, window in enumerate(windows):
             window_bb = shapely.geometry.box(*rasterio.windows.bounds(window, src_transform))
             intersects = RPG.intersects(window_bb)
 
             # Get the polygons that are both on the image borders and the window
-            border =  border_dataset & intersects
+            border = border_dataset & intersects
             if border.any():
                 rpg = RPG.loc[border]
                 list_on_border.append((img_path, rpg, window))
@@ -431,15 +431,15 @@ def split_img_borders(
 
 
 def split_windows(
-    window: rasterio.windows.Window, 
-    img_path: str, 
-    RPG: gpd.GeoDataFrame, 
-    list_rpg_patches, 
-    time_split
+        window: rasterio.windows.Window,
+        img_path: str,
+        RPG: gpd.GeoDataFrame,
+        list_rpg_patches,
+        time_split
 ):
     """
         Append the border patches to the list of border patches for the parallelized processes.
-        
+
         Parameters
         ----------
         img_path: the input image path
@@ -459,11 +459,11 @@ def split_windows(
         bb = shapely.geometry.box(*rasterio.windows.bounds(window, src_transform))
     else:
         bb = dataset_bb
-    
+
     intersects = RPG.intersects(bb)
     within = RPG.within(dataset_bb)
 
     if (intersects & within).any():
         list_rpg_patches.append((img_path, RPG.loc[intersects & within], window))
-    
+
     time_split.set(time_split.value + time.process_time() - start_split)
