@@ -100,3 +100,12 @@ Files are stored in the `output_dir` directory :
 - **Sun appearance/disappearance vector** : _[tile user can choose the number of times a pixel will be exposed to sun/shade in a given day (`occ_changes`).
 
 
+QGIS processing
+===============
+
+You can do “requests” on the sun_times gpkg file. For instance, if you want to detect places that are shadowed between 12h00 and 14h00, you can view the file on QGIS and filter it with the following expression :
+
+.. code-block:: console
+
+    "first_shadow_appearance" < '2024-08-31 11:55:00' AND "second_sun_appearance"  > '2024-08-31 14:05:00' OR "second_shadow_appearance"  < '2024-08-31 11:55:00'
+
