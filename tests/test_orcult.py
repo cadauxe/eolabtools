@@ -2,6 +2,7 @@ from conftest import EOLabtoolsTestsPath
 import subprocess
 from test_utils import compare_files
 import pytest
+import os
 
 
 # def test_plot_orientation(eolabtools_paths: EOLabtoolsTestsPath) -> None:
@@ -64,6 +65,9 @@ def test_plot_orientation_bd_ortho1(eolabtools_paths: EOLabtoolsTestsPath) -> No
     """
     TO DO
     """
+    if not os.path.exists(f"{eolabtools_paths.plotor_outdir}/2023_ortho1"):
+        os.makedirs(f"{eolabtools_paths.plotor_outdir}/2023_ortho1")
+
     command = [
         f"python",
         f"src/eolabtools/detection_orientation_culture/detection_orientation_culture/orientation_detection.py",
