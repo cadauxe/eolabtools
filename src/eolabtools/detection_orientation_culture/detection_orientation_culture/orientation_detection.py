@@ -200,6 +200,7 @@ def detect_multiple_orientations(
     v2 = orientation.coords
     v2 = np.array([v2[1][0] - v2[0][0], v2[1][1] - v2[0][1]])
 
+    np.random.seed(2)
     r = np.random.randn(*v2.shape)
     angle_ortho = r - np.dot(r, v2) / np.dot(v2, v2) * v2
     angle_ortho = angle_ortho * 1000
@@ -236,7 +237,7 @@ def detect_multiple_orientations(
     data = (data - data.min()) / (data.max() - data.min())
 
     # Mean shift
-    b = estimate_bandwidth(data)
+    b = estimate_bandwidth(data, random_state = 42)
 
     # grant more importance to angles than centroids
     data = data * [4, 1, 1]
