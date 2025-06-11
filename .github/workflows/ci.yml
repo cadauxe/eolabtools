@@ -1,0 +1,51 @@
+name: CI Workflow
+
+on:
+  pull_request:
+    branches:
+      - "main"
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+      - name: Create test env
+        shell: bash -l {0}
+        run: |
+          pip install pylint mccabe
+      - name: code quality
+        shell: bash -l {0}
+        run: |
+          pylint --disable=all --fail-under=10 --enable=too-many-statements src/eolabtools/detection_orientation_culture/
+          pylint --disable=all --fail-under=10 --enable=too-many-nested-blocks src/eolabtools/detection_orientation_culture/
+          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/sun_map_generation
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        python-version: '3.10'
+        auto-activate-base: false
+    - name: Create test env
+      shell: bash -l {0}
+      run: |
+        conda env create -f src/eolabtools/detection_orientation_culture/environment.yml
+        conda activate orcult_env
+    - name: test
+      shell: bash -l {0}
+      run: |
+        conda activate orcult_env
+        pytest -s tests/test_orcult.py --cov-fail-under=65
