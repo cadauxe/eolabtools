@@ -4,18 +4,15 @@ from typing import Dict, List, Tuple
 
 import geopandas as gpd
 import pandas as pd
-import git
 import numpy as np
 import numpy.linalg as la
 import rasterio
 import shapely
 from rasterstats import zonal_stats
 from scipy.stats import iqr
-import math
 
 from shapely.geometry import (LineString, MultiLineString, Point, Polygon, box,
                               shape)
-from sklearn.neighbors import BallTree
 
 
 def extend_line(line, extension_distance, where='both'):
@@ -65,30 +62,6 @@ def extend_line(line, extension_distance, where='both'):
         extended_line = LineString([start_point, new_end])
 
     return extended_line
-
-
-def get_nearest(src_points, candidates, k_neighbors=1):
-    """
-    Find nearest neighbors for all source points from a set of candidate points
-    """
-
-    # Create tree from the candidate points
-    tree = BallTree(candidates, leaf_size=15, metric='haversine')
-
-    # Find closest points and distances
-    distances, indices = tree.query(src_points, k=k_neighbors)
-
-    # Transpose to get distances and indices into arrays
-    distances = distances.transpose()
-    indices = indices.transpose()
-
-    # Get closest indices and distances (i.e. array at index 0)
-    # note: for the second closest points, you would take index 1, etc.
-    closest = indices[0]
-    closest_dist = distances[0]
-
-    # Return indices and distances
-    return (closest, closest_dist)
 
 
 def transform(x):

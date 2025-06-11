@@ -9,24 +9,18 @@ import time
 from datetime import datetime
 from functools import partial
 from multiprocessing import Manager
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from collections import Counter
 
-import matplotlib.pyplot as plt
 import geopandas as gpd
-# import git
 import cv2
 import numpy as np
-import numpy.linalg as la
 import pandas as pd
 import rasterio
 import rasterio.mask
 import shapely
 from shapely.ops import unary_union, polygonize
-from rasterio.plot import reshape_as_image, reshape_as_raster
 from rasterio.windows import Window
-from rasterstats import zonal_stats
-from scipy.stats import iqr
 from shapely.geometry import (LineString, MultiLineString, Point, Polygon, box,
                               shape)
 from sklearn.cluster import MeanShift, estimate_bandwidth
