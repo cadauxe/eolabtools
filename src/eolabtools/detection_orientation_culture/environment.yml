@@ -1,4 +1,4 @@
-name: detect_or_5_06
+name: orcult_env
 channels:
   - defaults
 dependencies:
@@ -128,6 +128,8 @@ dependencies:
   - pycodestyle=2.8.0
   - pyparsing=3.0.7
   - pyqt=5.12.3
+  - pytest
+  - pytest-cov
   - python=3.9.16
   - python-dateutil=2.8.2
   - python_abi=3.9
