@@ -4,6 +4,8 @@ from test_utils import compare_files
 import pytest
 import os
 
+# Ensure coverage starts in subprocesses
+os.environ['COVERAGE_PROCESS_START'] = '.coveragerc'
 
 # def test_plot_orientation(eolabtools_paths: EOLabtoolsTestsPath) -> None:
 #     """
