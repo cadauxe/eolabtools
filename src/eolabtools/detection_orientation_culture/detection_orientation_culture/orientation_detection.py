@@ -27,7 +27,7 @@ from sklearn.cluster import MeanShift, estimate_bandwidth
 
 from utils import (compute_angles,
                    create_linestring, filter_segments,
-                   get_mean_slope_aspect, get_norm_linestring, normalize_img,
+                   get_mean_slope_aspect, normalize_img,
                    split_img_borders, split_img_dataset, split_windows, compute_centroids, set_str_to_all,
                    extend_line, transform)
 

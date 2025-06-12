@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 import geopandas as gpd
 import pandas as pd
@@ -150,7 +150,8 @@ def normalize_img(img, mask) -> np.array:
 
         bands.append(norm_band)
 
-    return np.dstack(tuple(bands))
+    # return np.dstack(tuple(bands))
+    return np.array(bands)
 
 
 def create_linestring(seg, transform) -> Dict[shapely.geometry.linestring.LineString, float]:
