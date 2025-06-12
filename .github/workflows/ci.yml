@@ -20,11 +20,13 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install pylint mccabe
-      - name: code quality
+      - name: Run Pylint
         shell: bash -l {0}
         run: |
-          pylint --disable=all --fail-under=10 --enable=too-many-statements src/eolabtools/detection_orientation_culture/
-          pylint --disable=all --fail-under=10 --enable=too-many-nested-blocks src/eolabtools/detection_orientation_culture/
+          pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools/detection_orientation_culture/
+      - name: Run McCabe Complexity Check
+        shell: bash -l {0}
+        run: |
           ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/sun_map_generation
   test:
     runs-on: ubuntu-latest
