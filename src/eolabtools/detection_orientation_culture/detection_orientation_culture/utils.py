@@ -8,12 +8,27 @@ import numpy as np
 import numpy.linalg as la
 import rasterio
 import shapely
+import logging
+import cv2
+from functools import partial
 from rasterstats import zonal_stats
 from scipy.stats import iqr
 
 from shapely.geometry import (LineString, MultiLineString, Point, Polygon, box,
                               shape)
 
+_logger = logging.getLogger(__name__)
+
+
+def sec_to_hms(dt):
+    h = int(dt // 3600)
+    m = int((dt - h * 3600) // 60)
+    s = dt - h * 3600 - m * 60
+
+    h = "0" + str(h) if h < 10 else h
+    m = "0" + str(m) if m < 10 else m
+    s = "0" + str(s) if s < 10 else s
+    return "{}:{}:{:.3}".format(h, m, s)
 
 def extend_line(line, extension_distance, where='both'):
     """
@@ -441,3 +456,136 @@ def split_windows(
         list_rpg_patches.append((img_path, RPG.loc[intersects & within], window))
 
     time_split.set(time_split.value + time.process_time() - start_split)
+
+
+def export_save_fld(
+        ID_PARCEL_kept_lines,
+        bbox,
+        centroids,
+        intersections,
+        kept_lines,
+        orientations,
+        rpg,
+        rpg_refined,
+        save_fld,
+        start,
+        time_orientation_worker
+):
+
+    if save_fld:
+        df = pd.DataFrame({'geometry': kept_lines})
+        kept_lines = gpd.GeoDataFrame(df, columns=['geometry'])
+        kept_lines['ID_PARCEL'] = ID_PARCEL_kept_lines
+        kept_lines.crs = rpg.crs
+
+        end_orientation = time.process_time() - start
+        time_orientation_worker.set(
+            time_orientation_worker.value + end_orientation)
+        _logger.info(f"Done ({len(orientations)} orientation{'s' if len(orientations) > 1 else ''} found)")
+
+        rpg_refined = gpd.GeoDataFrame({'geometry': rpg_refined}, crs='EPSG:2154')
+        intersections = gpd.GeoDataFrame({'geometry': intersections}, crs='EPSG:2154')
+        bbox = gpd.GeoDataFrame({'geometry': bbox}, crs='EPSG:2154')
+        return orientations, centroids, kept_lines, rpg_refined, intersections, bbox
+    else:
+        end_orientation = time.process_time() - start
+        time_orientation_worker.set(
+            time_orientation_worker.value + end_orientation)
+        _logger.info(f"Done ({len(orientations)} orientation{'s' if len(orientations) > 1 else ''} found)")
+        return orientations, centroids
+
+
+def clip_data_to_window(data):
+    img_path, rpg, window = data
+    with rasterio.open(img_path) as dataset:
+        _logger.info(f"[PATCH] -> IMG : {os.path.basename(img_path)} | WINDOW : {window}")
+
+        # Get the polygons intersected by the window and add expansion
+        dataset_bb = box(*dataset.bounds)
+
+        rpg_expanded = rpg.buffer(1).intersection(dataset_bb)
+
+        # Get new window
+        src_transform = dataset.transform
+        win_transform = rasterio.windows.transform(window, src_transform)
+        window_bb = box(*rasterio.windows.bounds(window, src_transform))
+
+        # Check if the new window is not too big
+        if box(*rpg_expanded.total_bounds).area < window_bb.area * 3:
+            window = rasterio.windows.from_bounds(
+                *rpg_expanded.total_bounds, src_transform)
+            win_transform = rasterio.windows.transform(window, src_transform)
+        else:
+            rpg_expanded = rpg.buffer(1).intersection(window_bb)
+
+        profile = dataset.profile
+        mask_dataset = dataset.read_masks(1, window=window)
+        crs = dataset.crs
+
+        img = dataset.read(window=window)
+    return crs, img, mask_dataset, profile, rpg, rpg_expanded, win_transform, window, window_bb
+
+
+def save_centroids_orientations(
+        calc_aspect,
+        centroids,
+        indic_orient,
+        list_ID_PARCEL,
+        list_code_cultu,
+        list_code_group,
+        mean_aspect_list,
+        mean_len_lines,
+        mean_slope_list,
+        nb_lines_used,
+        nb_orientations,
+        orientations,
+        rpg,
+        std_orientation_x,
+        std_orientation_y
+):
+    # Export and save the centroids
+    centroids = gpd.GeoDataFrame({"geometry": centroids})
+    centroids['CODE_GROUP'] = list_code_group
+    centroids['CODE_CULTU'] = list_code_cultu
+    centroids.crs = rpg.crs
+    # Export and save the final linestring orientations
+    orientations = gpd.GeoDataFrame(
+        MultiLineString(orientations), columns=['geometry'])
+    orientations['CODE_GROUP'] = list_code_group
+    orientations['CODE_CULTU'] = list_code_cultu
+    orientations['ID_PARCEL'] = list_ID_PARCEL
+    orientations['NB_LINES'] = nb_lines_used
+    orientations['WARNING'] = [
+        f"multiple orientations ({n})" if n > 1 else "None" for n in nb_orientations]
+    orientations['MEAN_LINES'] = [f"{num:.3f}" for num in mean_len_lines]
+    orientations['STD_X_COOR'] = [f"{num:.3f}" for num in std_orientation_x]
+    orientations['STD_Y_COOR'] = [f"{num:.3f}" for num in std_orientation_y]
+    orientations['SLOPE'] = [f"{num:.3f}" for num in mean_slope_list]
+    orientations['ASPECT'] = [f"{num:.3f}" for num in mean_aspect_list]
+    orientations['CAL_ASPECT'] = [f"{num:.3f}" for num in calc_aspect]
+    orientations['IND_ORIENT'] = [f"{num:.3f}" for num in indic_orient]
+    orientations.crs = rpg.crs
+    return centroids, orientations
+
+
+def fld_segment_detect(crs, img, profile, rpg, time_fld, patch_border = False):
+    start_time_fld = time.process_time()
+    _logger.info("Starting FLD detection")
+    # FLD
+    fld = cv2.ximgproc.createFastLineDetector()
+    segments = np.squeeze(fld.detect(np.rint(np.asarray(img)).astype(np.uint8)))
+    _logger.info(f'Segments detected : {segments.shape[0]}')
+    segments = list(map(partial(
+        create_linestring,
+        transform=profile["transform"]),
+        segments
+    ))
+
+    if len(segments) == 0 and patch_border:
+        return gpd.GeoDataFrame([])
+
+    FLD = gpd.GeoDataFrame(segments, crs=crs)
+    FLD.crs = rpg.crs
+    fld_dur = time.process_time() - start_time_fld
+    time_fld.set(time_fld.value + fld_dur)
+    return FLD
