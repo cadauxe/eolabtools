@@ -2,6 +2,7 @@ import geopandas as gpd
 import rasterio
 import numpy as np
 import os
+import filecmp
 # import fiona
 
 import pandas as pd
@@ -26,37 +27,7 @@ def compare_shapefiles(file1, file2):
     Raises:
         ValueError: If shapefiles are different
     """
-    gdf_ref = gpd.read_file(file1)
-    gdf_test = gpd.read_file(file2)
-
-    # Ignore dates columns
-    ignore_cols = set([])
-    for col in gdf_ref.columns:
-        if col != 'geometry':
-            dtype = str(gdf_ref[col].dtype)
-            col_lower = col.lower()
-            if ('datetime' in dtype or 'date' in col_lower or
-                    'time' in col_lower or 'created' in col_lower or
-                    'modified' in col_lower or 'updated' in col_lower):
-                ignore_cols.add(col)
-
-    # Structure check
-    if len(gdf_ref) != len(gdf_test):
-        raise ValueError(f"Error comparing {file1} and {file2}")
-
-    # Columns to compare
-    ref_cols = [col for col in gdf_ref.columns if col not in ignore_cols]
-    test_cols = [col for col in gdf_test.columns if col not in ignore_cols]
-
-    if set(ref_cols) != set(test_cols):
-        raise ValueError(f"Error comparing {file1} and {file2}")
-
-    # CRS check
-    if gdf_ref.crs != gdf_test.crs:
-        raise ValueError(f"Error comparing {file1} and {file2}")
-
-    # Line per line check
-    if not(equal_lines_content(gdf_ref, gdf_test, ref_cols)) :
+    if not filecmp.cmp(file1, file2, shallow=False):
         raise ValueError(f"Error comparing {file1} and {file2}")
 
 
@@ -77,7 +48,7 @@ def equal_lines_content(gdf_ref, gdf_test, ref_cols) -> bool:
                     return False
             else:
                 # Compare attributes
-                if not (pd.isna(ref_val) and pd.isna(test_val)) and ref_val != test_val:
+                if not (pd.isna(ref_val) and pd.isna(test_val)) and str(ref_val) != str(test_val):
                     print(f"  Row {idx}: Attribute '{col}' mismatch")
                     print(f"    File1: {ref_val}")
                     print(f"    File2: {test_val}")
@@ -151,7 +122,7 @@ def compare_files(reference_dir : str, output_dir : str, tool : str):
         for f in ref_files:
             if f == "computation_time.csv" :
                 continue
-            if any(ext in f for ext in [".shp", ".dbf", ".prj", ".cpg", ".shx"]):
+            if any(ext in f for ext in [".shp"]):
                 # Compare shapefiles
                 compare_shapefiles(f"{output_dir}/{f}", f"{reference_dir}/{f}")
             elif ".csv" in f :
