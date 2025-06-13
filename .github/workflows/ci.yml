@@ -20,12 +20,14 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install pylint mccabe
-      - name: code quality
+      - name: Run Pylint
         shell: bash -l {0}
         run: |
-          pylint --disable=all --fail-under=10 --enable=too-many-statements src/eolabtools/night_osm_registration/
-          pylint --disable=all --fail-under=10 --enable=too-many-nested-blocks src/eolabtools/night_osm_registration/
-          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/night_osm_registration/
+            pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools/night_osm_registration/
+      - name: Run McCabe Complexity Check
+        shell: bash -l {0}
+        run: |
+            ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools
   test:
     runs-on: ubuntu-latest
     steps:
