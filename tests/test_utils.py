@@ -1,10 +1,9 @@
-# import geopandas as gpd
+import geopandas as gpd
 import rasterio
 import numpy as np
 import os
-
-import filecmp
 # import fiona
+
 import pandas as pd
 
 
@@ -17,14 +16,73 @@ def compare_csv(file1, file2):
     df2_sorted = df2.sort_values(by=list(df2.columns)).reset_index(drop=True)
 
     if not df1_sorted.equals(df2_sorted):
-        # print(f"CSV files differ: {file1} and {file2}")
         raise ValueError(f"CSV files differ: {file1} and {file2}")
 
 
 def compare_shapefiles(file1, file2):
-    if not filecmp.cmp(file1, file2, shallow=False):
-        # print(f"Error comparing {file1} and {file2}")
+    """
+    Compare two shapefiles.
+
+    Raises:
+        ValueError: If shapefiles are different
+    """
+    gdf_ref = gpd.read_file(file1)
+    gdf_test = gpd.read_file(file2)
+
+    # Ignore dates columns
+    ignore_cols = set([])
+    for col in gdf_ref.columns:
+        if col != 'geometry':
+            dtype = str(gdf_ref[col].dtype)
+            col_lower = col.lower()
+            if ('datetime' in dtype or 'date' in col_lower or
+                    'time' in col_lower or 'created' in col_lower or
+                    'modified' in col_lower or 'updated' in col_lower):
+                ignore_cols.add(col)
+
+    # Structure check
+    if len(gdf_ref) != len(gdf_test):
         raise ValueError(f"Error comparing {file1} and {file2}")
+
+    # Columns to compare
+    ref_cols = [col for col in gdf_ref.columns if col not in ignore_cols]
+    test_cols = [col for col in gdf_test.columns if col not in ignore_cols]
+
+    if set(ref_cols) != set(test_cols):
+        raise ValueError(f"Error comparing {file1} and {file2}")
+
+    # CRS check
+    if gdf_ref.crs != gdf_test.crs:
+        raise ValueError(f"Error comparing {file1} and {file2}")
+
+    # Line per line check
+    if not(equal_lines_content(gdf_ref, gdf_test, ref_cols)) :
+        raise ValueError(f"Error comparing {file1} and {file2}")
+
+
+
+def equal_lines_content(gdf_ref, gdf_test, ref_cols) -> bool:
+    """
+    """
+    for idx in range(len(gdf_ref)):
+        for col in ref_cols:
+            ref_val = gdf_ref.iloc[idx][col]
+            test_val = gdf_test.iloc[idx][col]
+
+            if col == 'geometry':
+                # Compare geometries
+                if ref_val is None and test_val is None:
+                    pass
+                elif (ref_val is None) != (test_val is None) or not ref_val.equals(test_val):
+                    return False
+            else:
+                # Compare attributes
+                if not (pd.isna(ref_val) and pd.isna(test_val)) and ref_val != test_val:
+                    print(f"  Row {idx}: Attribute '{col}' mismatch")
+                    print(f"    File1: {ref_val}")
+                    print(f"    File2: {test_val}")
+                    return False
+    return True
 
 
 def compare_tif(file1, file2, atol=1e-10):
@@ -53,29 +111,15 @@ def compare_tif(file1, file2, atol=1e-10):
 #         gdf1 = gpd.read_file(file1, layer=layer)
 #         gdf2 = gpd.read_file(file2, layer=layer)
 #
-#         # Sort by non-geometry columns for alignment
-#         sort_cols = [col for col in gdf1.columns if col != 'geometry']
-#         gdf1 = gdf1.sort_values(by=sort_cols).reset_index(drop=True)
-#         gdf2 = gdf2.sort_values(by=sort_cols).reset_index(drop=True)
+#         # Columns to compare
+#         ref_cols = [col for col in gdf1.columns]
+#         test_cols = [col for col in gdf2.columns]
 #
-#         for idx, (row1, row2) in enumerate(zip(gdf1.itertuples(index=False), gdf2.itertuples(index=False))):
-#             geom1 = row1.geometry
-#             geom2 = row2.geometry
+#         if set(ref_cols) != set(test_cols):
+#           raise ValueError(f"Error comparing {file1} and {file2}")
 #
-#             for attr_name in gdf1.columns:
-#                 if attr_name == 'geometry': # Geometry check
-#                     if geom1 is None and geom2 is None:
-#                         pass
-#                     elif (geom1 is None) != (geom2 is None) or not geom1.equals(geom2):
-#                         raise ValueError(f"GPKG files differ.")
-#                 else : # Attribute check
-#                     val1 = getattr(row1, attr_name)
-#                     val2 = getattr(row2, attr_name)
-#                     if not((pd.isna(val1) and pd.isna(val2)) or (str(val1) == str(val2))):
-#                         print(f"  Row {idx}: Attribute '{attr_name}' mismatch")
-#                         print(f"    File1: {val1}")
-#                         print(f"    File2: {val2}")
-#                         raise ValueError(f"GPKG files differ.")
+#         if not(equal_lines_content(gdf1, gdf2, test_cols)) :
+#           raise ValueError(f"Error comparing {file1} and {file2}")
 
 
 def compare_files(reference_dir : str, output_dir : str, tool : str):
@@ -114,5 +158,3 @@ def compare_files(reference_dir : str, output_dir : str, tool : str):
                 # Compare csv files
                 compare_csv(f"{output_dir}/{f}", f"{reference_dir}/{f}")
         print("Both directories contain the same files.")
-
-
