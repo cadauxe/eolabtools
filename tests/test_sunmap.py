@@ -20,7 +20,6 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
         f"--digital_surface_model", f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst",
         f"--tiles_file", f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/1tile.shp",
-        f"--area", f"Paris",
         f"--date", f"2024-08-03", f"2024-08-04", f"1",
         f"--time", f"08:00", f"17:00", f"120",
         f"--nb_cores", f"32",
@@ -28,15 +27,8 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"--output_dir", f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst/"
     ]
 
-    try :
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        print("❌ Subprocess failed!")
-        print("Return code:", e.returncode)
-        print("=== STDOUT ===")
-        print(e.stdout)
-        print("=== STDERR ===")
-        print(e.stderr)
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    print(result.stderr)
 
     os.remove(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst")
 
@@ -55,7 +47,6 @@ def test_sunmap_1tile_tif(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
         f"--digital_surface_model", f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/75-2021-0659-6861-LA93-0M50.tif",
         f"--tiles_file", f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/1tile.shp",
-        f"--area", f"Paris",
         f"--date", f"2024-08-03", f"2024-08-04", f"1",
         f"--time", f"08:00", f"17:00", f"120",
         f"--nb_cores", f"32",
@@ -86,7 +77,6 @@ def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
         f"--digital_surface_model", f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/listing_2tiles.lst",
         f"--tiles_file", f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/2tiles.shp",
-        f"--area", f"Paris",
         f"--date", f"2024-08-31", f"2024-08-31", f"1",
         f"--time", f"08:00", f"9:00", f"60",
         f"--nb_cores", f"32",
