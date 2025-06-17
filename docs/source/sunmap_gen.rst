@@ -4,13 +4,35 @@
 Sun Map Generation
 ==================
 
-#Change installation procedure
-#TO DO
+From a Digital Surface Model of your area of interest, a range of dates and a time range per date of your choice, this tool
+generates a “sun map” per date with the percentage of sun exposure over the time range, as well as a vector file that gives the
+transition times from shade to sun (and sun to shade) for each pixel at the first date. Shadow masks can also be produced at each
+step.
 
+Remark : time range is given in the local time of the area of interest.
+
+If the area of interest is important, the DSM should be divided into tiles beforehand (typically 1km*1km). The list of tiles is
+given as input. The tool will manage the shadow impact on adjacent tiles.
+
+Method :
+
+- Compute elevation and azimuth angles of the Sun at the center of each tile for each time step in the time range and date range.
+
+- Compute the corresponding shadow masks.
+
+- Generate the “sun map” at each date.
+
+- Generate the sun<>shade transitions vector file.
+
+
+# ADD ILLUSTRATION AND DESCRIPTION OF ILLUSTRATION
+
+.. image:: _static/sunmap/sunmap_illustration.png
 
 Dire à l'utilisateur qu'il faut que son shapefile s'appelle TILE_NAME
 
-Sun Map Generation is a tool for generating sunshine maps for a specific area at a specific time.
+#Change installation procedure
+#TO DO
 
 Installing environment
 ======================
@@ -30,56 +52,27 @@ Content
 =======
 
 
-- `/src` : Contains the main scripts files :
-
-    - `SunMapGenerator.py` : Main python file
-    - `sun_map_script.slurm` : Slurm script that launches the main script. Allow to parametrize according to the needs and allocate the quantity of resources required.
-
+- `/src` : Contains the main python file `SunMapGenerator.py`.
 
 Run the tool
 ============
 
-To launch the tool, please use slurm script :
-
-.. code-block:: console
-
-    sbatch sun_map_script.slurm
+To launch the tool, please use the following command line script :
 
 Input data
 ==========
 
-_sun_map_script.slurm_ :
-
-.. code-block:: console
-    #!/bin/bash
-    #SBATCH --job-name=sunmap       # job's name
-    #SBATCH --output=outfile-%j.out
-    #SBATCH --error=errfile-%j.err
-    #SBATCH -N 1                        # number of nodes (or --nodes=1)
-    #SBATCH -n 32                       # number of tasks (or --tasks=8)
-    #SBATCH --mem-per-cpu=8000M         # memory per core
-    #SBATCH --time=01:00:00             # Wall Time
-    #SBATCH --account=cnes_level2       # MANDATORY : account  ( launch myaccounts to list your accounts)
-    #SBATCH --export=none               # To start the job with a clean environnement and source of ~/.bashrc
-
-    ml conda
-    conda activate /work/EOLAB/USERS/duthoit/envs/conda/crt_enso/
-
-    cd /work/EOLAB/USERS/duthoit/CARTE_ENSOILLEMENT/src/
-
-    python SunMapGenerator.py --digital_surface_model /work/EOLAB/USERS/duthoit/CARTE_ENSOILLEMENT/listings/listing_test.lst\
-                              --area Paris \
+    python SunMapGenerator.py --digital_surface_model /path_to_input_files/input_files.lst\
                               --date 2024-07-20 2024-07-30 3 \
                               --time 10:00 14:00 30 \
                               --nb_cores 32 \
                               --occ_changes 4 \
-                              --output_dir /work/EOLAB/USERS/duthoit/CARTE_ENSOILLEMENT/outputs/ \
+                              --output_dir /path_to_output_directory/output_directory/ \
                               --save_temp \
                               --save_masks
 
 
 - `digital_surface_model` : path to the `.lst` file
-- `area` : Name of the city where to apply the sunlight calculation
 - `date` : Date or date range (YYYY-MM-DD) and step (in days). The default step value is 1 day.
 - `time` : Time or time range (HH:MM) and step (in minutes). The default step value is 30 minutes.
 - `occ_changes` : Limit of sun/shade change of a pixel over one day. Even number (2 or 4). Default value 4.
