@@ -94,6 +94,7 @@ def compare_files(reference_dir : str, output_dir : str, tool : str):
     if tool == "NightOSM":
         print(ref_files)
         for f in ref_files :
+            print(f)
             if ".tif" in f:
                 # Compare tif files (pixel value and metadata)
                 compare_tif(f"{output_dir}/{f}", f"{reference_dir}/{f}")

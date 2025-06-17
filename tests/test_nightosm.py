@@ -22,14 +22,14 @@ def test_nightosm_rasterize_radiance(eolabtools_paths: EOLabtoolsTestsPath) -> N
         f"--osm-config", f"{eolabtools_paths.nightosm_datadir}/osm-config/osm_config_subtracted.yml",
         f"{eolabtools_paths.nightosm_datadir}/Extrait1/Extract1-Radiance.tif"
     ]
-    print(command)
+    print(' '.join(command))
 
     result = subprocess.run(command, capture_output=True, text=True, check=True)
 
     compare_files(reference_dir = f"{eolabtools_paths.nightosm_ref}/TestRasterizeRadiance",
                   output_dir = f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_radiance",
                   tool = "NightOSM")
-    clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_radiance")
+    # clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_radiance")
 
 
 @pytest.mark.ci
@@ -54,7 +54,7 @@ def test_nightosm_rasterize_rgb(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestRasterizeRGB",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_rgb",
                   tool="NightOSM")
-    clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_rgb")
+    # clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_rgb")
 
 
 @pytest.mark.ci
@@ -79,7 +79,7 @@ def test_nightosm_register_radiance(eolabtools_paths: EOLabtoolsTestsPath) -> No
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestRegisterRadiance",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_radiance",
                   tool="NightOSM")
-    clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_radiance")
+    # clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_radiance")
 
 
 @pytest.mark.ci
@@ -104,7 +104,7 @@ def test_nightosm_register_rgb(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestRegisterRGB",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_rgb",
                   tool="NightOSM")
-    clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_rgb")
+    # clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_rgb")
 
 @pytest.mark.ci
 def test_nightosm_vector(eolabtools_paths: EOLabtoolsTestsPath) -> None:
@@ -127,7 +127,7 @@ def test_nightosm_vector(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestRegisterVector",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_vector",
                   tool="NightOSM")
-    clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_vector")
+    # clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_vector")
 
 
 @pytest.mark.ci
@@ -152,4 +152,4 @@ def test_nightosm_simple_config(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestSimpleConfig",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_simple_config",
                   tool="NightOSM")
-    clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_simple_config")
+    # clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_simple_config")
