@@ -1,0 +1,3 @@
+[console_scripts]
+night_osm_image_registration = src.eolabtools.night_osm_registration.register_image:main
+night_osm_vector_registration = src.eolabtools.night_osm_registration.register_vector:main

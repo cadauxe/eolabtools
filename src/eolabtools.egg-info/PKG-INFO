@@ -1,0 +1,117 @@
+Metadata-Version: 2.4
+Name: eolabtools
+Version: 0.0.0
+Summary: TO DO
+Home-page: https://github.com/CNES/eolabtools
+Author: TO DO
+Author-email: 
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/CNES/eolabtools
+Requires-Python: >=3.8.13
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: affine
+Requires-Dist: aiobotocore
+Requires-Dist: aiohttp
+Requires-Dist: aioitertools
+Requires-Dist: sphinx-rtd-theme
+Requires-Dist: aiosignal
+Requires-Dist: async-timeout
+Requires-Dist: attrs
+Requires-Dist: botocore
+Requires-Dist: bounded-pool-executor
+Requires-Dist: certifi
+Requires-Dist: charset-normalizer
+Requires-Dist: click
+Requires-Dist: click-plugins
+Requires-Dist: cligj
+Requires-Dist: configupdater
+Requires-Dist: contourpy
+Requires-Dist: cycler
+Requires-Dist: earthaccess
+Requires-Dist: ephem
+Requires-Dist: fiona
+Requires-Dist: fonttools
+Requires-Dist: frozenlist
+Requires-Dist: fsspec
+Requires-Dist: geographiclib
+Requires-Dist: geopandas
+Requires-Dist: geopy
+Requires-Dist: idna
+Requires-Dist: imageio
+Requires-Dist: importlib-metadata
+Requires-Dist: importlib-resources
+Requires-Dist: jmespath
+Requires-Dist: kiwisolver
+Requires-Dist: matplotlib
+Requires-Dist: multidict
+Requires-Dist: multimethod
+Requires-Dist: numpy
+Requires-Dist: packaging
+Requires-Dist: pandas
+Requires-Dist: pillow
+Requires-Dist: platformdirs
+Requires-Dist: pqdm
+Requires-Dist: pyparsing
+Requires-Dist: pyproj
+Requires-Dist: pyscaffold
+Requires-Dist: pytest
+Requires-Dist: python-cmr
+Requires-Dist: python-dateutil
+Requires-Dist: pytz
+Requires-Dist: rasterio
+Requires-Dist: requests
+Requires-Dist: s3fs
+Requires-Dist: scipy
+Requires-Dist: setuptools-scm
+Requires-Dist: shapely
+Requires-Dist: six
+Requires-Dist: snuggs
+Requires-Dist: tinynetrc
+Requires-Dist: tomli
+Requires-Dist: tomlkit
+Requires-Dist: tqdm
+Requires-Dist: typing-extensions
+Requires-Dist: tzdata
+Requires-Dist: urllib3
+Requires-Dist: wrapt
+Requires-Dist: yarl
+Requires-Dist: zipp
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+# Eolabtools
+
+
+Eolabtools allows to use various tools for satellite imagery analysis : 
+
+#Verify installation procedure
+#TO DO
+
+# Detection Orientation Culture 
+
+Rapide description 
+Guide d’installation
+Auteurs
+Licence
+
+# Night OSM Registration
+
+A city seen from above at night can be compared to a city map.
+Night visible data registration based on OSM reference
+## Authors
+
+
+# Sun Map Generation
+
+Sun Map Generation is a tool for generating sunshine maps for a specific area at a specific time.
+
+## Authors
+
+
+
+Licence ?
+
+#TO DO

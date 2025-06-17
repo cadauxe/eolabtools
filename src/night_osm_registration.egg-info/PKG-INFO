@@ -1,0 +1,60 @@
+Metadata-Version: 2.4
+Name: night_osm_registration
+Version: 0.3.0
+Summary: Library to compute shift in nighttime imagery based on OSM vector features
+Project-URL: homepage, https://gitlab.cnes.fr/eolab/processing/night_osm_registration
+Project-URL: repository, https://gitlab.cnes.fr/eolab/processing/night_osm_registration
+Keywords: gis,remote sensing,nighttime imagery
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: GIS
+Classifier: Topic :: Scientific/Engineering :: Image Processing
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: numpy<2
+Requires-Dist: pyogrio
+Requires-Dist: shapely>=2
+Requires-Dist: geopandas
+Requires-Dist: pyrosm
+Requires-Dist: scikit-image
+Requires-Dist: opencv-python
+Requires-Dist: matplotlib
+Requires-Dist: pyyaml
+Dynamic: license-file
+
+# Eolabtools
+
+
+Eolabtools allows to use various tools for satellite imagery analysis : 
+
+#Verify installation procedure
+#TO DO
+
+# Detection Orientation Culture 
+
+Rapide description 
+Guide d’installation
+Auteurs
+Licence
+
+# Night OSM Registration
+
+A city seen from above at night can be compared to a city map.
+Night visible data registration based on OSM reference
+## Authors
+
+
+# Sun Map Generation
+
+Sun Map Generation is a tool for generating sunshine maps for a specific area at a specific time.
+
+## Authors
+
+
+
+Licence ?
+
+#TO DO
