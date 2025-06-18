@@ -8,6 +8,8 @@ import rasterio
 import cv2
 from scipy import ndimage
 
+KEEP_FILES = False
+
 
 def apply_displacement_grid_opencv(otb_input, otb_displacementgrid, otb_output):
     with rasterio.open(otb_input) as src:
@@ -282,7 +284,7 @@ def apply_shift(infile: Path, disp_grid: np.ndarray, outdir: Path):
     with rasterio.open(out_shifted, "w", **tmp_profile) as new_dataset:
         new_dataset.write(otb_shifted_cropped_raster)
 
-    if not KEEP_OTB_FILES:
+    if not KEEP_FILES:
         otb_input.unlink()
         otb_displacementgrid.unlink()
         otb_output.unlink()

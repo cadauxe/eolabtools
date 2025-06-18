@@ -24,8 +24,8 @@ homepage = "https://gitlab.cnes.fr/eolab/processing/night_osm_registration"
 repository = "https://gitlab.cnes.fr/eolab/processing/night_osm_registration"
 
 [project.scripts]
-night_osm_image_registration = "src.eolabtools.night_osm_registration.register_image:main"
-night_osm_vector_registration = "src.eolabtools.night_osm_registration.register_vector:main"
+night_osm_image_registration = "eolabtools.night_osm_registration.register_image:main"
+night_osm_vector_registration = "eolabtools.night_osm_registration.register_vector:main"
 
 [tool.setuptools.dynamic]
 version = { attr = "eolabtools.night_osm_registration.__version__" }

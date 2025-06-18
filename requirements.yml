@@ -9,6 +9,7 @@ dependencies:
   - scikit-image
   - opencv
   - rasterio
+  - gdal
   - pytest
   - pytest-cov
   - matplotlib
