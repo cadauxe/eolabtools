@@ -1,11 +1,8 @@
 from conftest import EOLabtoolsTestsPath
-import subprocess
-from test_utils import compare_files
+from test_utils import compare_files, clear_outdir, create_outdir
 import pytest
 import os
-from pathlib import Path
 import subprocess
-import sys
 
 @pytest.mark.ci
 def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
@@ -14,6 +11,8 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     """
     with open(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst", "w") as f:
         f.write(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/75-2021-0659-6861-LA93-0M50.tif" + "\n")
+
+    create_outdir(f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst/")
 
     command = [
         f"python",
@@ -30,11 +29,12 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     print(result.stderr)
 
-    os.remove(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst")
-
     compare_files(reference_dir = f"{eolabtools_paths.sunmap_ref}/test_1tile_low_res",
                   output_dir = f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst",
                   tool = "SunMapGen")
+
+    os.remove(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst")
+    clear_outdir(f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst/")
 
 
 @pytest.mark.ci
@@ -42,6 +42,8 @@ def test_sunmap_1tile_tif(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     """
     TO DO
     """
+    create_outdir(f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_tif/")
+
     command = [
         f"python",
         f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
@@ -61,6 +63,8 @@ def test_sunmap_1tile_tif(eolabtools_paths: EOLabtoolsTestsPath) -> None:
                   output_dir = f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_tif",
                   tool = "SunMapGen")
 
+    clear_outdir(f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_tif/")
+
 
 @pytest.mark.ci
 def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
@@ -71,6 +75,8 @@ def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f.write(f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/75-2021-0648-6862-LA93-0M50.tif"
                 + "\n"
                 + f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/75-2021-0649-6862-LA93-0M50.tif" )
+
+    create_outdir(f"{eolabtools_paths.sunmap_outdir}/test_2tiles_low_res/")
 
     command = [
         f"python",
@@ -93,3 +99,6 @@ def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     compare_files(reference_dir = f"{eolabtools_paths.sunmap_ref}/test_2tiles_low_res",
                   output_dir = f"{eolabtools_paths.sunmap_outdir}/test_2tiles_low_res",
                   tool = "SunMapGen")
+
+    os.remove(f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/listing_2tiles.lst")
+    clear_outdir(f"{eolabtools_paths.sunmap_outdir}/test_2tiles_low_res/")
