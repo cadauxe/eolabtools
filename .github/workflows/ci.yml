@@ -39,11 +39,9 @@ jobs:
     - name: Create test env
       shell: bash -l {0}
       run: |
-        conda create -n test_env
+        conda env create --name test_env --file=requirements.yml
         conda activate test_env
-        conda install otb=8.0.1 rasterio -c iota2 -c conda-forge
-        conda env update -f requirements.yml 
-        pip install -e . --no-deps
+        pip install .
         pip install pylint mccabe
     - name: test
       shell: bash -l {0}

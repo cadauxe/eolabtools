@@ -7,20 +7,7 @@ name = "night_osm_registration"
 description = "Library to compute shift in nighttime imagery based on OSM vector features"
 requires-python = ">=3.7"
 keywords = ["gis", "remote sensing", "nighttime imagery"]
-dependencies = [
-    "numpy<2",
-#    "rasterio<=1.3.11",
-    "pyogrio",
-    "shapely>=2",
-    "geopandas",
-    "pyrosm",
-#    "gdal==3.4.0",
-    "scikit-image",
-    "opencv-python",
-    "matplotlib",
-    "pyyaml",
-    # GDAL and OTB must be installed and configured manually, pip cannot do it properly !
-]
+dependencies = []
 readme = "README.md"
 license = { file = "LICENSE.txt" }
 dynamic = ["version"]
