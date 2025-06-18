@@ -1,40 +1,11 @@
-##### Main configuration file
-
-
-### Mandatory
-# Size of the subtile sampling [px]
-window_size: 90
-
-# Limit value for valid shift computation [px]
 max_shift: 6
-
-# Intermediate Subsampling to allow displacement grid interpolation at subtile edges [px]
-subsampling: 1
-
-# Radiance theshold for binarization
-radiance_threshold: 6.5
-
-# Path to an OSM .pbf file, or a city name in `pyrosm.data.sources.cities.available`
 osm_dataset: /home/ecadaux/Documents/work/eolabtools/eolabtools/tests/data/NightOSMReg/test_data/osm/Paris-Extrait2.osm.pbf
-
-
-### Optional
-# Region or interest used to crop final images
-roi_file: 
-
-# Vector file of water polygons
-water_vector:
-
-# Buffer size for road vectors (useful with high resolution imagery, else 1 pixel should be enough)
+proxy: null
+radiance_threshold: 6.5
+raster_bin_path: null
+raster_osm_path: null
 road_buffer_size: 3
-
-# Path of binarized raster if already computed
-raster_bin_path:
-
-# Path of binarized osm if already computed
-raster_osm_path:
-
-# If the OSM reference download is needed through a proxy server : proxy server address (e.g. "proxy_address:port")
-proxy:
-
-
+roi_file: null
+subsampling: 1
+water_vector: null
+window_size: 90
