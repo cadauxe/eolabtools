@@ -28,6 +28,7 @@ jobs:
         shell: bash -l {0}
         run: |
           ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/sun_map_generation
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -51,3 +52,16 @@ jobs:
       run: |
         conda activate orcult_env
         pytest -s tests/test_orcult.py --cov-fail-under=65
+
+    - name: Run Pytest with Coverage
+      shell: bash -l {0}
+      run: |
+        pytest -s tests --cov=src/eolabtools/detection_orientation_culture/detection_orientation_culture --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          .ci-reports/
+          cov_html/
+          pytest-results.xml
