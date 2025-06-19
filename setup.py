@@ -11,9 +11,16 @@ from setuptools import setup, find_packages
 
 
 # Function to read requirements.txt
-def read_requirements(filename):
-    with open(filename, "r") as f:
-        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+def read_requirements(filenames : list):
+    lines = []
+    for filename in filenames:
+        with open(filename, "r") as file:
+            lines.extend(
+                line.strip()
+                for line in file
+                if line.strip() and not line.strip().startswith("#")
+            )
+    return lines
 
 
 if __name__ == "__main__":
@@ -31,13 +38,21 @@ if __name__ == "__main__":
               author=u"see AUTHORS.txt file",
               author_email="",
               url="https://github.com/CNES/eolabtools",
-              packages=find_packages(exclude=['tests']),
+              packages=find_packages(where="src"),
+              package_dir={"": "src"},
               include_package_data=True,
               zip_safe=False,
               setup_requires = ["setuptools_scm"],
-              install_requires=read_requirements("src/eolabtools/sun_map_generation/requirements.yml"),
+              install_requires=read_requirements(["src/eolabtools/sun_map_generation/requirements.yml", "src/eolabtools/night_osm_registration/requirements.yml"]),
               python_requires='>=3.8.13',
-              use_scm_version={"version_scheme": "no-guess-dev"})
+              use_scm_version={"version_scheme": "no-guess-dev"},
+              entry_points={
+                  "console_scripts": [
+                      "night_osm_image_registration = eolabtools.night_osm_registration.register_image:main",
+                      "night_osm_vector_registration = eolabtools.night_osm_registration.register_vector:main",
+                  ],
+              },
+              )
     except:  # noqa
         print(
             "\n\nAn error occurred while building the project, "
