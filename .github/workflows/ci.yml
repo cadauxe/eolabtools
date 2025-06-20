@@ -23,11 +23,12 @@ jobs:
       - name: Run Pylint
         shell: bash -l {0}
         run: |
-            pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools/sun_map_generation/
+          pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools/detection_orientation_culture/
       - name: Run McCabe Complexity Check
         shell: bash -l {0}
         run: |
-            ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools
+          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/sun_map_generation
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -44,13 +45,19 @@ jobs:
     - name: Create test env
       shell: bash -l {0}
       run: |
-        conda create -n eolab_test python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
-        conda activate test_env
-        pip install georastertools --no-binary rasterio
-        pip install .
-        pip install pylint mccabe
+        conda env create -f src/eolabtools/detection_orientation_culture/environment.yml
+        conda activate orcult_env
     - name: test
       shell: bash -l {0}
       run: |
-        conda activate test_env
-        pytest -s --cov-fail-under=65
+        conda activate orcult_env
+        pytest -s tests/test_orcult.py --cov-fail-under=65
+        pytest -s tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture/detection_orientation_culture --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          .ci-reports/
+          cov_html/
+          pytest-results.xml

@@ -1,22 +1,34 @@
 import os
 import time
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 import geopandas as gpd
 import pandas as pd
-import git
 import numpy as np
 import numpy.linalg as la
 import rasterio
 import shapely
+import logging
+import cv2
+from functools import partial
 from rasterstats import zonal_stats
 from scipy.stats import iqr
-import math
 
 from shapely.geometry import (LineString, MultiLineString, Point, Polygon, box,
                               shape)
-from sklearn.neighbors import BallTree
 
+_logger = logging.getLogger(__name__)
+
+
+def sec_to_hms(dt):
+    h = int(dt // 3600)
+    m = int((dt - h * 3600) // 60)
+    s = dt - h * 3600 - m * 60
+
+    h = "0" + str(h) if h < 10 else h
+    m = "0" + str(m) if m < 10 else m
+    s = "0" + str(s) if s < 10 else s
+    return "{}:{}:{:.3}".format(h, m, s)
 
 def extend_line(line, extension_distance, where='both'):
     """
@@ -39,7 +51,7 @@ def extend_line(line, extension_distance, where='both'):
     end_point = line.coords[-1]
     length_line = line.length
 
-    if where =='both':
+    if where == 'both':
         # extension at start
         new_start = (start_point[0] + (start_point[0] - end_point[0]) / length_line * extension_distance,
                      start_point[1] + (start_point[1] - end_point[1]) / length_line * extension_distance)
@@ -65,30 +77,6 @@ def extend_line(line, extension_distance, where='both'):
         extended_line = LineString([start_point, new_end])
 
     return extended_line
-
-
-def get_nearest(src_points, candidates, k_neighbors=1):
-    """
-    Find nearest neighbors for all source points from a set of candidate points
-    """
-
-    # Create tree from the candidate points
-    tree = BallTree(candidates, leaf_size=15, metric='haversine')
-
-    # Find closest points and distances
-    distances, indices = tree.query(src_points, k=k_neighbors)
-
-    # Transpose to get distances and indices into arrays
-    distances = distances.transpose()
-    indices = indices.transpose()
-
-    # Get closest indices and distances (i.e. array at index 0)
-    # note: for the second closest points, you would take index 1, etc.
-    closest = indices[0]
-    closest_dist = distances[0]
-
-    # Return indices and distances
-    return (closest, closest_dist)
 
 
 def transform(x):
@@ -177,7 +165,8 @@ def normalize_img(img, mask) -> np.array:
 
         bands.append(norm_band)
 
-    return np.dstack(tuple(bands))
+    # return np.dstack(tuple(bands))
+    return np.array(bands)
 
 
 def create_linestring(seg, transform) -> Dict[shapely.geometry.linestring.LineString, float]:
@@ -191,8 +180,8 @@ def create_linestring(seg, transform) -> Dict[shapely.geometry.linestring.LineSt
         int(seg[0]),
     )
     pt2 = rasterio.transform.xy(
-        transform, 
-        int(seg[3]), 
+        transform,
+        int(seg[3]),
         int(seg[2])
     )
 
@@ -203,11 +192,11 @@ def create_linestring(seg, transform) -> Dict[shapely.geometry.linestring.LineSt
     return {"geometry": l1, "width": 1}
 
 
-
-def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[float, float, float, shapely.geometry.linestring.LineString]:
+def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[
+    float, float, float, shapely.geometry.linestring.LineString]:
     """
         Compute the norm of the input segment
-        
+
         Parameters
         ----------
         ls: the input LineString
@@ -222,7 +211,7 @@ def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[flo
 
     if ls.type == "MultiLineString":
         coord = ls[0].coords
-    else :
+    else:
         coord = ls.coords
     coord = ls.coords
     x1 = coord[0][0]
@@ -230,7 +219,7 @@ def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[flo
     x2 = coord[1][0]
     y2 = coord[1][1]
     # to get the coordinates in the same direction we set x1 to be the
-    if x2 < x1 :
+    if x2 < x1:
         x1_bp = x1
         x2_bp = x2
         y1_bp = y1
@@ -250,14 +239,14 @@ def get_norm_linestring(ls: shapely.geometry.linestring.LineString) -> Tuple[flo
 
 
 def get_mean_slope_aspect(
-    pol: shapely.geometry.polygon.Polygon, 
-    slope: str, 
-    aspect: str, 
-    time_slope_aspect
+        pol: shapely.geometry.polygon.Polygon,
+        slope: str,
+        aspect: str,
+        time_slope_aspect
 ):
     """
         Get mean slope and aspect for the input parcel
-        
+
         Parameters
         ----------
         pol: the input Polygon
@@ -303,7 +292,7 @@ def filter_segments(segments: gpd.GeoDataFrame, min_len_line: float):
     """
 
     df_norm_vectxy = segments.geometry.apply(get_norm_linestring)
-    
+
     vectx = [e[1] for e in df_norm_vectxy.to_list()]
     vecty = [e[2] for e in df_norm_vectxy.to_list()]
     # X
@@ -321,10 +310,10 @@ def filter_segments(segments: gpd.GeoDataFrame, min_len_line: float):
 
     interval = 0
     list_filtered = list(filter(lambda t: t[1] > (min_outlier_x - interval) and \
-            t[1] < (max_outlier_x + interval) and \
-            t[2] > (min_outlier_y - interval) and \
-            t[2] < (max_outlier_y + interval) and \
-            t[0] > min_len_line, df_norm_vectxy.to_list()))
+                                          t[1] < (max_outlier_x + interval) and \
+                                          t[2] > (min_outlier_y - interval) and \
+                                          t[2] < (max_outlier_y + interval) and \
+                                          t[0] > min_len_line, df_norm_vectxy.to_list()))
 
     # continues only if there are lines kept in the list (at least 2 to compute statistics)
     len_lines = [e[0] for e in list_filtered]
@@ -336,15 +325,15 @@ def filter_segments(segments: gpd.GeoDataFrame, min_len_line: float):
 
 
 def split_img_dataset(
-    img_path: str, 
-    RPG: gpd.GeoDataFrame, 
-    patch_size: int, 
-    list_rpg_patches, 
-    time_split
+        img_path: str,
+        RPG: gpd.GeoDataFrame,
+        patch_size: int,
+        list_rpg_patches,
+        time_split
 ):
     """
         Append the patches to the list of patches for the parallelized processes.
-        
+
         Parameters
         ----------
         img_path: the input image path
@@ -363,7 +352,7 @@ def split_img_dataset(
             dataset_bb = shapely.geometry.box(*dataset.bounds)
 
             windows = [rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
-                for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)]
+                       for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)]
 
             for window in windows:
                 bb = shapely.geometry.box(*rasterio.windows.bounds(window, src_transform))
@@ -383,15 +372,15 @@ def split_img_dataset(
 
 
 def split_img_borders(
-    img_path: str, 
-    RPG: gpd.GeoDataFrame, 
-    patch_size: int, 
-    list_on_border, 
-    time_split
+        img_path: str,
+        RPG: gpd.GeoDataFrame,
+        patch_size: int,
+        list_on_border,
+        time_split
 ):
     """
         Append the border patches to the list of border patches for the parallelized processes.
-        
+
         Parameters
         ----------
         img_path: the input image path
@@ -408,17 +397,17 @@ def split_img_borders(
         dataset_bb = shapely.geometry.box(*dataset.bounds)
 
     windows = [rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
-            for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)] if patch_size else None
+               for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)] if patch_size else None
 
     # Get the polygons intersected by but not within the image extent ie on the image borders
     border_dataset = RPG.intersects(dataset_bb) & ~RPG.within(dataset_bb)
     if windows:
-        for i,window in enumerate(windows):
+        for i, window in enumerate(windows):
             window_bb = shapely.geometry.box(*rasterio.windows.bounds(window, src_transform))
             intersects = RPG.intersects(window_bb)
 
             # Get the polygons that are both on the image borders and the window
-            border =  border_dataset & intersects
+            border = border_dataset & intersects
             if border.any():
                 rpg = RPG.loc[border]
                 list_on_border.append((img_path, rpg, window))
@@ -431,15 +420,15 @@ def split_img_borders(
 
 
 def split_windows(
-    window: rasterio.windows.Window, 
-    img_path: str, 
-    RPG: gpd.GeoDataFrame, 
-    list_rpg_patches, 
-    time_split
+        window: rasterio.windows.Window,
+        img_path: str,
+        RPG: gpd.GeoDataFrame,
+        list_rpg_patches,
+        time_split
 ):
     """
         Append the border patches to the list of border patches for the parallelized processes.
-        
+
         Parameters
         ----------
         img_path: the input image path
@@ -459,12 +448,144 @@ def split_windows(
         bb = shapely.geometry.box(*rasterio.windows.bounds(window, src_transform))
     else:
         bb = dataset_bb
-    
+
     intersects = RPG.intersects(bb)
     within = RPG.within(dataset_bb)
 
-
     if (intersects & within).any():
         list_rpg_patches.append((img_path, RPG.loc[intersects & within], window))
-    
+
     time_split.set(time_split.value + time.process_time() - start_split)
+
+
+def export_save_fld(
+        ID_PARCEL_kept_lines,
+        bbox,
+        centroids,
+        intersections,
+        kept_lines,
+        orientations,
+        rpg,
+        rpg_refined,
+        save_fld,
+        start,
+        time_orientation_worker
+):
+
+    if save_fld:
+        df = pd.DataFrame({'geometry': kept_lines})
+        kept_lines = gpd.GeoDataFrame(df, columns=['geometry'])
+        kept_lines['ID_PARCEL'] = ID_PARCEL_kept_lines
+        kept_lines.crs = rpg.crs
+
+        end_orientation = time.process_time() - start
+        time_orientation_worker.set(
+            time_orientation_worker.value + end_orientation)
+        _logger.info(f"Done ({len(orientations)} orientation{'s' if len(orientations) > 1 else ''} found)")
+
+        rpg_refined = gpd.GeoDataFrame({'geometry': rpg_refined}, crs='EPSG:2154')
+        intersections = gpd.GeoDataFrame({'geometry': intersections}, crs='EPSG:2154')
+        bbox = gpd.GeoDataFrame({'geometry': bbox}, crs='EPSG:2154')
+        return orientations, centroids, kept_lines, rpg_refined, intersections, bbox
+    else:
+        end_orientation = time.process_time() - start
+        time_orientation_worker.set(
+            time_orientation_worker.value + end_orientation)
+        _logger.info(f"Done ({len(orientations)} orientation{'s' if len(orientations) > 1 else ''} found)")
+        return orientations, centroids
+
+
+def clip_data_to_window(data):
+    img_path, rpg, window = data
+    with rasterio.open(img_path) as dataset:
+        _logger.info(f"[PATCH] -> IMG : {os.path.basename(img_path)} | WINDOW : {window}")
+
+        # Get the polygons intersected by the window and add expansion
+        dataset_bb = box(*dataset.bounds)
+
+        rpg_expanded = rpg.buffer(1).intersection(dataset_bb)
+
+        # Get new window
+        src_transform = dataset.transform
+        win_transform = rasterio.windows.transform(window, src_transform)
+        window_bb = box(*rasterio.windows.bounds(window, src_transform))
+
+        # Check if the new window is not too big
+        if box(*rpg_expanded.total_bounds).area < window_bb.area * 3:
+            window = rasterio.windows.from_bounds(
+                *rpg_expanded.total_bounds, src_transform)
+            win_transform = rasterio.windows.transform(window, src_transform)
+        else:
+            rpg_expanded = rpg.buffer(1).intersection(window_bb)
+
+        profile = dataset.profile
+        mask_dataset = dataset.read_masks(1, window=window)
+        crs = dataset.crs
+
+        img = dataset.read(window=window)
+    return crs, img, mask_dataset, profile, rpg, rpg_expanded, win_transform, window, window_bb
+
+
+def save_centroids_orientations(
+        calc_aspect,
+        centroids,
+        indic_orient,
+        list_ID_PARCEL,
+        list_code_cultu,
+        list_code_group,
+        mean_aspect_list,
+        mean_len_lines,
+        mean_slope_list,
+        nb_lines_used,
+        nb_orientations,
+        orientations,
+        rpg,
+        std_orientation_x,
+        std_orientation_y
+):
+    # Export and save the centroids
+    centroids = gpd.GeoDataFrame({"geometry": centroids})
+    centroids['CODE_GROUP'] = list_code_group
+    centroids['CODE_CULTU'] = list_code_cultu
+    centroids.crs = rpg.crs
+    # Export and save the final linestring orientations
+    orientations = gpd.GeoDataFrame(
+        MultiLineString(orientations), columns=['geometry'])
+    orientations['CODE_GROUP'] = list_code_group
+    orientations['CODE_CULTU'] = list_code_cultu
+    orientations['ID_PARCEL'] = list_ID_PARCEL
+    orientations['NB_LINES'] = nb_lines_used
+    orientations['WARNING'] = [
+        f"multiple orientations ({n})" if n > 1 else "None" for n in nb_orientations]
+    orientations['MEAN_LINES'] = [f"{num:.3f}" for num in mean_len_lines]
+    orientations['STD_X_COOR'] = [f"{num:.3f}" for num in std_orientation_x]
+    orientations['STD_Y_COOR'] = [f"{num:.3f}" for num in std_orientation_y]
+    orientations['SLOPE'] = [f"{num:.3f}" for num in mean_slope_list]
+    orientations['ASPECT'] = [f"{num:.3f}" for num in mean_aspect_list]
+    orientations['CAL_ASPECT'] = [f"{num:.3f}" for num in calc_aspect]
+    orientations['IND_ORIENT'] = [f"{num:.3f}" for num in indic_orient]
+    orientations.crs = rpg.crs
+    return centroids, orientations
+
+
+def fld_segment_detect(crs, img, profile, rpg, time_fld, patch_border = False):
+    start_time_fld = time.process_time()
+    _logger.info("Starting FLD detection")
+    # FLD
+    fld = cv2.ximgproc.createFastLineDetector()
+    segments = np.squeeze(fld.detect(np.rint(np.asarray(img)).astype(np.uint8)))
+    _logger.info(f'Segments detected : {segments.shape[0]}')
+    segments = list(map(partial(
+        create_linestring,
+        transform=profile["transform"]),
+        segments
+    ))
+
+    if len(segments) == 0 and patch_border:
+        return gpd.GeoDataFrame([])
+
+    FLD = gpd.GeoDataFrame(segments, crs=crs)
+    FLD.crs = rpg.crs
+    fld_dur = time.process_time() - start_time_fld
+    time_fld.set(time_fld.value + fld_dur)
+    return FLD

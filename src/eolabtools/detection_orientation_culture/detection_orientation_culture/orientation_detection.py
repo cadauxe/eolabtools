@@ -9,41 +9,35 @@ import time
 from datetime import datetime
 from functools import partial
 from multiprocessing import Manager
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from collections import Counter
 
-import matplotlib.pyplot as plt
 import geopandas as gpd
-# import git
-import cv2
 import numpy as np
-import numpy.linalg as la
 import pandas as pd
 import rasterio
 import rasterio.mask
 import shapely
 from shapely.ops import unary_union, polygonize
-from rasterio.plot import reshape_as_image, reshape_as_raster
 from rasterio.windows import Window
-from rasterstats import zonal_stats
-from scipy.stats import iqr
 from shapely.geometry import (LineString, MultiLineString, Point, Polygon, box,
                               shape)
 from sklearn.cluster import MeanShift, estimate_bandwidth
 
-
-from utils import (compute_angles,
-                   create_linestring, filter_segments,
-                   get_mean_slope_aspect, get_norm_linestring, normalize_img,
+from utils import (compute_angles, sec_to_hms,
+                   filter_segments, fld_segment_detect,
+                   get_mean_slope_aspect, normalize_img, save_centroids_orientations,
                    split_img_borders, split_img_dataset, split_windows, compute_centroids, set_str_to_all,
-                   extend_line, transform)
+                   extend_line, transform, export_save_fld, clip_data_to_window)
 
 import warnings
 import logging
 import ssl
 import sys
+
 ssl._create_default_https_context = ssl._create_unverified_context
 warnings.filterwarnings("ignore")
+
 
 def get_splitting_lines(
         intersections: List[Polygon],
@@ -70,7 +64,7 @@ def get_splitting_lines(
         except TypeError as e:
             _logger.debug("ERROR comes from ", id_parcel)
             return []
-        if len(points) > 2 :
+        if len(points) > 2:
             return []
         try:
             line = LineString(points)
@@ -101,11 +95,11 @@ def get_pseudo_patches(
 ):
     """
         Get shapes of multi oriented parcels
-        
+
         Parameters
         ----------
         polygon_list: List containing the Polygon shapes (convex hull)
-        
+
         Returns
         -------
         patches_list: List containing the shapes of the pseudo parcels
@@ -136,7 +130,7 @@ def get_pseudo_patches(
     if len(splitting_lines) == 0:
         return [parcel], []
 
-    splitting_lines.append(parcel.boundary) # append the boundary of the Polygon
+    splitting_lines.append(parcel.boundary)  # append the boundary of the Polygon
     border_lines = unary_union(splitting_lines)
     splitted_shapes = polygonize(border_lines)
     splitted_shapes = list(splitted_shapes)
@@ -158,13 +152,13 @@ def get_pseudo_patches(
 
 
 def detect_multiple_orientations(
-    fld_lines: List[LineString],
-    vectx: List[float],
-    vecty: List[float],
-    len_lines: List[float],
-    orientation: LineString,
-    min_nb_line_per_parcelle: int,
-    parcel_id : int
+        fld_lines: List[LineString],
+        vectx: List[float],
+        vecty: List[float],
+        len_lines: List[float],
+        orientation: LineString,
+        min_nb_line_per_parcelle: int,
+        parcel_id: int
 ):
     """
         Detect if a parcel contains multiple orientations and compute these orientations
@@ -187,8 +181,8 @@ def detect_multiple_orientations(
             - the orientations
             - their centroids
             - the average length of the segments
-            - the number of segments used 
-            - the std of the segments x coordinates 
+            - the number of segments used
+            - the std of the segments x coordinates
             - the std of the segments y coordinates
     """
 
@@ -199,6 +193,7 @@ def detect_multiple_orientations(
     v2 = orientation.coords
     v2 = np.array([v2[1][0] - v2[0][0], v2[1][1] - v2[0][1]])
 
+    np.random.seed(2)
     r = np.random.randn(*v2.shape)
     angle_ortho = r - np.dot(r, v2) / np.dot(v2, v2) * v2
     angle_ortho = angle_ortho * 1000
@@ -215,27 +210,27 @@ def detect_multiple_orientations(
 
     # # We compute the angles histogram and count the peaks ie the clusters of segments
     hist, bins = np.histogram(pd.DataFrame([a if a < 160 else 180 - a for a in angles[0]]), bins=9,
-                                range=(0, 180))
-    
-    #penalty = hist[0] > min_nb_line_per_parcelle and hist[-1] > min_nb_line_per_parcelle
-    num_orient = len(hist[hist > min_nb_line_per_parcelle])# - penalty
+                              range=(0, 180))
+
+    # penalty = hist[0] > min_nb_line_per_parcelle and hist[-1] > min_nb_line_per_parcelle
+    num_orient = len(hist[hist > min_nb_line_per_parcelle])  # - penalty
 
     if num_orient < 2:
         return num_orient, None
 
     _logger.info(f"[{parcel_id}] Multiple orientations found ({num_orient})")
 
-    #if penalty:
+    # if penalty:
     angles = angles.applymap(transform)
 
     data = pd.concat([angles, centroids], axis=1)
     data.columns = data.columns.astype('str')
 
     # normalize
-    data = (data-data.min())/(data.max()-data.min())
+    data = (data - data.min()) / (data.max() - data.min())
 
     # Mean shift
-    b = estimate_bandwidth(data)
+    b = estimate_bandwidth(data, random_state = 42)
 
     # grant more importance to angles than centroids
     data = data * [4, 1, 1]
@@ -252,11 +247,50 @@ def detect_multiple_orientations(
     if num_orient > 4:
         clusters_to_keep = clusters_to_keep[:4]
 
-    orient_dict = {"orientations": [], "centroids": [], "mean_len_lines": [
-    ], "nb_lines_used": [], "std_orient_x": [], "std_orient_y": [], "min_bounding_box": []}
-
     if len(clusters_to_keep) == 0:
         return 1, None
+
+    orient_dict = compute_multiple_orientations(clusters, clusters_to_keep, fld_lines, len_lines, parcel_id, vectx,
+                                  vecty)
+
+    return len(clusters_to_keep), orient_dict
+
+
+def compute_multiple_orientations(
+        clusters,
+        clusters_to_keep,
+        fld_lines,
+        len_lines,
+        parcel_id,
+        vectx,
+        vecty
+    ):
+    """
+    Compute orientation lines and statistics for plots with multiple orientations.
+
+    Parameters:
+    -----------
+    clusters : array-like
+        An array or list assigning each line segment to a cluster label.
+    clusters_to_keep : iterable
+        A list or set of cluster labels to process.
+    fld_lines : list of shapely LineString
+        The geometries corresponding to the input clusters.
+    len_lines : array-like
+        Lengths of each line segment.
+    parcel_id : int or str
+        Identifier for the parcel to which these clusters belong.
+    vectx : array-like
+        x-components of the orientation vectors of line segments.
+    vecty : array-like
+        y-components of the orientation vectors of line segments.
+
+    Returns:
+    --------
+    orient_dict : dict
+    """
+    orient_dict = {"orientations": [], "centroids": [], "mean_len_lines": [
+    ], "nb_lines_used": [], "std_orient_x": [], "std_orient_y": [], "min_bounding_box": []}
 
     for k in clusters_to_keep:
 
@@ -290,7 +324,7 @@ def detect_multiple_orientations(
 
         # to get bigger lines, we can use the bounds of the pseudo parcel :
         av = (pseudo_parcel.bounds[2] - pseudo_parcel.bounds[0]) / \
-            4 + (pseudo_parcel.bounds[3] - pseudo_parcel.bounds[1]) / 4
+             4 + (pseudo_parcel.bounds[3] - pseudo_parcel.bounds[1]) / 4
 
         # to have a minimum length of the line orientation :
         min_length_orientation = 40
@@ -299,7 +333,7 @@ def detect_multiple_orientations(
                 [((xc - xmed * av), (yc - ymed * av)), ((xc + xmed * av), (yc + ymed * av))])
         else:
             pseudo_orient = LineString([((xc - xmed * min_length_orientation), (yc - ymed * min_length_orientation)),
-                                       ((xc + xmed * min_length_orientation), (yc + ymed * min_length_orientation))])
+                                        ((xc + xmed * min_length_orientation), (yc + ymed * min_length_orientation))])
 
         orient_dict["orientations"].append(pseudo_orient)
         orient_dict["centroids"].append(centroid)
@@ -310,14 +344,14 @@ def detect_multiple_orientations(
         orient_dict["min_bounding_box"].append(pseudo_parcel)
         orient_dict["id_parcel"] = parcel_id
 
-    return len(clusters_to_keep), orient_dict
+    return orient_dict
 
 
 def orientation_from_lines(
-    vectx: List[float],
-    vecty: List[float],
-    pol: Polygon,
-    value_mean_aspect: float
+        vectx: List[float],
+        vecty: List[float],
+        pol: Polygon,
+        value_mean_aspect: float
 ) -> Tuple[LineString, float, float]:
     """
     Extract global orientation from detected lines,
@@ -325,7 +359,7 @@ def orientation_from_lines(
     and the angle between the slope and the orientation.
 
     Parameters
-    ---------- 
+    ----------
         vectx: x coordinates of the detected lines
         vecty: y coordinates of the detected lines
         pol: the RPG polygon
@@ -351,7 +385,7 @@ def orientation_from_lines(
 
     # to get bigger lines, we can use the bounds of the polygon :
     av = (pol.bounds[2] - pol.bounds[0]) / 4 + \
-        (pol.bounds[3] - pol.bounds[1]) / 4
+         (pol.bounds[3] - pol.bounds[1]) / 4
 
     # to have a minimum length of the line orientation :
     min_length_orientation = 40
@@ -359,8 +393,11 @@ def orientation_from_lines(
         final_linestrings_orientation = LineString(
             [((xc - xmed * av), (yc - ymed * av)), ((xc + xmed * av), (yc + ymed * av))])
     else:
-        final_linestrings_orientation = LineString([((xc - xmed * min_length_orientation), (yc - ymed * min_length_orientation)), ((
-            xc + xmed * min_length_orientation), (yc + ymed * min_length_orientation))])
+        final_linestrings_orientation = LineString(
+            [((xc - xmed * min_length_orientation), (yc - ymed * min_length_orientation)), ((
+                                                                                                    xc + xmed * min_length_orientation),
+                                                                                            (
+                                                                                                        yc + ymed * min_length_orientation))])
 
     # convert the computed orientation vector into azimuth angle
     value_calc_aspect = 180 + math.degrees(math.atan2(xmed, ymed))
@@ -377,19 +414,19 @@ def orientation_from_lines(
 
 
 def compute_orientation(
-    ind: int,
-    RPG: gpd.GeoDataFrame,
-    FLD: gpd.GeoDataFrame,
-    slope: str,
-    aspect: str,
-    window_bb: shapely.geometry.box,
-    area_min: float,
-    parcel_ids_processed: list,
-    min_nb_line_per_parcelle: int,
-    min_len_line: float,
-    time_slope_aspect: float,
-    time_calculate_orientation: float,
-    verbose: bool
+        ind: int,
+        RPG: gpd.GeoDataFrame,
+        FLD: gpd.GeoDataFrame,
+        slope: str,
+        aspect: str,
+        window_bb: shapely.geometry.box,
+        area_min: float,
+        parcel_ids_processed: list,
+        min_nb_line_per_parcelle: int,
+        min_len_line: float,
+        time_slope_aspect: float,
+        time_calculate_orientation: float,
+        verbose: bool
 ):
     """
     Extract the orientation(s) of the parcel from detected lines,
@@ -397,7 +434,7 @@ def compute_orientation(
     and the angle between the slope and the orientation.
 
     Parameters
-    ---------- 
+    ----------
         ind: the index of the parcel in the RPG
         RPG: the GeoDataFrame containing the parcels
         FLD: the GeoDataFrame containing the detected segments
@@ -428,7 +465,7 @@ def compute_orientation(
             the number of orientations detected
         list
             a list containing the average lengths of the segments used to compute each orientation
-        list 
+        list
             a list containing the std of the segments x coordinates used to compute each orientation
         list
             a list containing the std of the segments y coordinates used to compute each orientation
@@ -447,7 +484,6 @@ def compute_orientation(
         list
             a list of Polygon of the pseudo parcels
     """
-
     delta_calculate_orientation = time.process_time()
 
     # Get the parcel polygon
@@ -467,7 +503,7 @@ def compute_orientation(
 
     # Erode the polygon edges to filter out the segments on the border
     # The erosion is proportional to the parcel's area
-    erosion = - 5 * np.max([1, np.log((pol.area / area_min)**2)])
+    erosion = - 5 * np.max([1, np.log((pol.area / area_min) ** 2)])
     within = FLD.within(pol.buffer(erosion))
     inter = FLD.loc[within]
 
@@ -486,13 +522,13 @@ def compute_orientation(
         pol, slope, aspect, time_slope_aspect)
 
     if value_mean_aspect is None or value_mean_slope is None:
-        _logger.info(f"[{ID_PARCEL}] Skipping parcel: mean slope value={value_mean_slope}, mean aspect value={value_mean_aspect}")
+        _logger.info(
+            f"[{ID_PARCEL}] Skipping parcel: mean slope value={value_mean_slope}, mean aspect value={value_mean_aspect}")
         return
 
     # Filter the segments
     vectx, vecty, len_lines, kept_lines = filter_segments(inter, min_len_line)
 
-    
     if len(vectx) <= (min_nb_line_per_parcelle * np.max([1, pol.area / area_min])):
         _logger.info(f"[{ID_PARCEL}] Skipping parcel: not enough segments kept to compute the parcel orientation")
         return
@@ -515,10 +551,12 @@ def compute_orientation(
     nb_orientations, orient_dict = detect_multiple_orientations(
         kept_lines, vectx, vecty, len_lines, orientation, min_nb_line_per_parcelle, ID_PARCEL)
 
-    _logger.info(f"[{ID_PARCEL}] {nb_orientations} orientation{'s' if nb_orientations > 1 else ''} orientations detected")
+    _logger.info(
+        f"[{ID_PARCEL}] {nb_orientations} orientation{'s' if nb_orientations > 1 else ''} orientations detected")
 
     if orient_dict is not None:
-        pseudo_patches, intersection_shapes = get_pseudo_patches(orient_dict["min_bounding_box"], pol, orient_dict["id_parcel"])
+        pseudo_patches, intersection_shapes = get_pseudo_patches(orient_dict["min_bounding_box"], pol,
+                                                                 orient_dict["id_parcel"])
         orientation = orient_dict["orientations"]
         centroid = orient_dict["centroids"]
         mean_len_lines = orient_dict["mean_len_lines"]
@@ -536,25 +574,25 @@ def compute_orientation(
     time_calculate_orientation.set(
         time_calculate_orientation.value + delta_calculate_orientation)
     return orientation, centroid, code_group, code_cultu, nb_lines_used, nb_orientations, mean_len_lines, std_orient_x, std_orient_y, value_mean_slope, value_mean_aspect, value_calc_aspect, indic_orient, ID_PARCEL, kept_lines, pseudo_patches, intersection_shapes, bb
-    
+
 
 def orientation_worker(
-    data: Tuple[str, gpd.GeoDataFrame, Window],
-    normalize: bool,
-    parcel_ids_processed: list,
-    slope: str,
-    aspect: str,
-    area_min: float,
-    increment: int,
-    min_nline: int,
-    min_len_line: int,
-    time_inter_mask_open: float,
-    time_slope_aspect: float,
-    time_fld: float,
-    time_orientation_worker: float,
-    time_calculate_orientation: float,
-    save_fld: bool,
-    verbose: bool
+        data: Tuple[str, gpd.GeoDataFrame, Window],
+        normalize: bool,
+        parcel_ids_processed: list,
+        slope: str,
+        aspect: str,
+        area_min: float,
+        increment: int,
+        min_nline: int,
+        min_len_line: int,
+        time_inter_mask_open: float,
+        time_slope_aspect: float,
+        time_fld: float,
+        time_orientation_worker: float,
+        time_calculate_orientation: float,
+        save_fld: bool,
+        verbose: bool
 ) -> Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """
     Apply the FLD algorithm to the input image and compute the crop orientations for the parcels in the RPG.
@@ -562,7 +600,7 @@ def orientation_worker(
     Parameters
     ----------
         data: a tuple containing the input image path, the rpg parcels, and an optionnal rasterio.Window with which to read the image
-        normalize: boolean indicating whether or not the image has to be normalized 
+        normalize: boolean indicating whether or not the image has to be normalized
         parcel_ids_processed: a list (shared between all the worker instances) containing the already processed parcels ids
         slope: the path to the raster containing the slope values
         aspect: the path to the raster containing the aspect values
@@ -589,34 +627,8 @@ def orientation_worker(
     """
 
     start = time.process_time()
-    img_path, rpg, window = data
 
-    with rasterio.open(img_path) as dataset:
-        _logger.info(f"[PATCH] -> IMG : {os.path.basename(img_path)} | WINDOW : {window}")
-
-        # Get the polygons intersected by the window and add expansion
-        dataset_bb = box(*dataset.bounds)
-
-        rpg_expanded = rpg.buffer(1).intersection(dataset_bb)
-
-        # Get new window
-        src_transform = dataset.transform
-        win_transform = rasterio.windows.transform(window, src_transform)
-        window_bb = box(*rasterio.windows.bounds(window, src_transform))
-
-        # Check if the new window is not too big
-        if box(*rpg_expanded.total_bounds).area < window_bb.area * 3:
-            window = rasterio.windows.from_bounds(
-                *rpg_expanded.total_bounds, src_transform)
-            win_transform = rasterio.windows.transform(window, src_transform)
-        else:
-            rpg_expanded = rpg.buffer(1).intersection(window_bb)
-
-        profile = dataset.profile
-        mask_dataset = dataset.read_masks(1, window=window)
-        crs = dataset.crs
-
-        img = dataset.read(window=window)
+    crs, img, mask_dataset, profile, rpg, rpg_expanded, win_transform, window, window_bb = clip_data_to_window(data)
 
     if normalize:
         img = normalize_img(img, mask_dataset)
@@ -630,7 +642,7 @@ def orientation_worker(
                                            all_touched=True,
                                            dtype=rasterio.uint8)
     img = np.uint8(img)
-    img = np.where(mask_dataset*mask_rpg, img, 0)
+    img = np.where(mask_dataset * mask_rpg, img, 0)
 
     if window is not None:
         profile.data["width"] = window.width
@@ -642,51 +654,17 @@ def orientation_worker(
     img = np.mean(img[0:3], axis=0)
     end_time_inter_mask_open = time.process_time() - start
 
-    
     time_inter_mask_open.set(
         time_inter_mask_open.value + end_time_inter_mask_open)
 
     # Detect segments with FLD
-    start_time_fld = time.process_time()
-    _logger.info("Starting FLD detection")
+    FLD = fld_segment_detect(crs, img, profile, rpg, time_fld)
 
-    # FLD
-    fld = cv2.ximgproc.createFastLineDetector()
-    segments = np.squeeze(fld.detect(np.rint(np.asarray(img)).astype(np.uint8)))
+    orientations, centroids, list_code_group, list_code_cultu, nb_lines_used, nb_orientations, \
+        mean_len_lines, std_orientation_x, std_orientation_y, mean_slope_list, mean_aspect_list, \
+        calc_aspect, indic_orient, list_ID_PARCEL, kept_lines, ID_PARCEL_kept_lines, rpg_refined, \
+        intersections, bbox = ([] for _ in range(19))
 
-    _logger.info(f'Segments detected : {segments.shape[0]}')
-    
-    segments = list(map(partial(
-        create_linestring,
-        transform=profile["transform"]),
-        segments
-    ))
-
-    FLD = gpd.GeoDataFrame(segments, crs=crs)
-    FLD.crs = rpg.crs
-    
-    fld_dur = time.process_time() - start_time_fld
-    time_fld.set(time_fld.value + fld_dur)
-
-    orientations = []
-    centroids = []
-    list_code_group = []
-    list_code_cultu = []
-    nb_lines_used = []
-    nb_orientations = []
-    mean_len_lines = []
-    std_orientation_x = []
-    std_orientation_y = []
-    mean_slope_list = []
-    mean_aspect_list = []
-    calc_aspect = []
-    indic_orient = []
-    list_ID_PARCEL = []
-    kept_lines = []
-    ID_PARCEL_kept_lines = []
-    rpg_refined = []
-    intersections = []
-    bbox = []
     # Compute orientations from the detected segments
     if not FLD.empty:
         for ind in list(rpg.index):
@@ -726,63 +704,28 @@ def orientation_worker(
                 rpg_refined += r[15]
                 intersections += r[16]
                 bbox += r[17]
-    
-    # Export and save the centroids
-    centroids = gpd.GeoDataFrame({"geometry": centroids})
-    centroids['CODE_GROUP'] = list_code_group
-    centroids['CODE_CULTU'] = list_code_cultu
-    centroids.crs = rpg.crs
 
-    # Export and save the final linestring orientations
-    orientations = gpd.GeoDataFrame(
-        MultiLineString(orientations), columns=['geometry'])
-    orientations['CODE_GROUP'] = list_code_group
-    orientations['CODE_CULTU'] = list_code_cultu
-    orientations['ID_PARCEL'] = list_ID_PARCEL
-    orientations['NB_LINES'] = nb_lines_used
-    orientations['WARNING'] = [
-        f"multiple orientations ({n})" if n > 1 else "None" for n in nb_orientations]
-    orientations['MEAN_LINES'] = [f"{num:.3f}" for num in mean_len_lines]
-    orientations['STD_X_COOR'] = [f"{num:.3f}" for num in std_orientation_x]
-    orientations['STD_Y_COOR'] = [f"{num:.3f}" for num in std_orientation_y]
-    orientations['SLOPE'] = [f"{num:.3f}" for num in mean_slope_list]
-    orientations['ASPECT'] = [f"{num:.3f}" for num in mean_aspect_list]
-    orientations['CAL_ASPECT'] = [f"{num:.3f}" for num in calc_aspect]
-    orientations['IND_ORIENT'] = [f"{num:.3f}" for num in indic_orient]
-    orientations.crs = rpg.crs
+    # Export and save the centroids and linestring orientations
+    centroids, orientations = save_centroids_orientations(calc_aspect, centroids, indic_orient, list_ID_PARCEL,
+                                                          list_code_cultu, list_code_group, mean_aspect_list,
+                                                          mean_len_lines, mean_slope_list, nb_lines_used,
+                                                          nb_orientations, orientations, rpg, std_orientation_x,
+                                                          std_orientation_y)
 
     # Export and save the segments kept to compute the orientations
-    if save_fld:
-        df = pd.DataFrame({'geometry': kept_lines})
-        kept_lines = gpd.GeoDataFrame(df, columns=['geometry'])
-        kept_lines['ID_PARCEL'] = ID_PARCEL_kept_lines
-        kept_lines.crs = rpg.crs
+    return export_save_fld(ID_PARCEL_kept_lines, bbox, centroids, intersections, kept_lines, orientations, rpg,
+                           rpg_refined, save_fld, start, time_orientation_worker)
 
-        end_orientation = time.process_time() - start
-        time_orientation_worker.set(
-            time_orientation_worker.value + end_orientation)
-        _logger.info(f"Done ({len(orientations)} orientation{'s' if len(orientations) > 1 else ''} found)")
 
-        rpg_refined = gpd.GeoDataFrame({'geometry': rpg_refined}, crs='EPSG:2154')
-        intersections = gpd.GeoDataFrame({'geometry': intersections}, crs='EPSG:2154')
-        bbox = gpd.GeoDataFrame({'geometry': bbox}, crs='EPSG:2154')
-        return orientations, centroids, kept_lines, rpg_refined, intersections, bbox
-    else:
-        end_orientation = time.process_time() - start
-        time_orientation_worker.set(
-            time_orientation_worker.value + end_orientation)
-        _logger.info(f"Done ({len(orientations)} orientation{'s' if len(orientations) > 1 else ''} found)")
-        return orientations, centroids
-    
 
 def get_on_patch_border_lines(
-    inputs,
-    min_len_line,
-    normalize,
-    area_min,
-    time_fld,
-    time_inter_mask_open,
-    verbose
+        inputs,
+        min_len_line,
+        normalize,
+        area_min,
+        time_fld,
+        time_inter_mask_open,
+        verbose
 ):
     """
         Detect the segment in the parcels located on the borders of the image patches
@@ -836,7 +779,7 @@ def get_on_patch_border_lines(
                                            all_touched=True,
                                            dtype=rasterio.uint8)
     img = np.uint8(img)
-    img = np.where(mask_dataset*mask_rpg, img, 0)
+    img = np.where(mask_dataset * mask_rpg, img, 0)
 
     if window is not None:
         profile.data["width"] = window.width
@@ -850,29 +793,7 @@ def get_on_patch_border_lines(
     time_inter_mask_open.set(
         time_inter_mask_open.value + time.process_time() - start)
 
-    start_time_fld = time.process_time()
-    _logger.info("Starting FLD detection")
-
-    # FLD
-    fld = cv2.ximgproc.createFastLineDetector()
-    segments = np.squeeze(fld.detect(np.rint(np.asarray(img)).astype(np.uint8)))
-
-    _logger.info(f'Segments detected : {segments.shape[0]}')
-
-    segments = list(map(partial(
-        create_linestring,
-        transform=profile["transform"]),
-        segments
-    ))
-
-    if len(segments) == 0:
-        return gpd.GeoDataFrame([])
-
-    FLD = gpd.GeoDataFrame(segments, crs=crs)
-    FLD.crs = rpg.crs
-
-    fld_dur = time.process_time() - start_time_fld
-    time_fld.set(time_fld.value + fld_dur)
+    FLD = fld_segment_detect(crs, img, profile, rpg, time_fld, patch_border = True)
 
     gdf = []
     for ind in list(rpg.index):
@@ -881,7 +802,7 @@ def get_on_patch_border_lines(
         ID_PARCEL = rpg.at[ind, "ID_PARCEL"]
 
         # Erode the polygon edges to filter out the segments on the border
-        erosion = - 5 * np.max([1, np.log((pol.area / area_min)**2)])
+        erosion = - 5 * np.max([1, np.log((pol.area / area_min) ** 2)])
         within = FLD.within(pol.buffer(erosion))
         inter = FLD.loc[within]
 
@@ -913,16 +834,15 @@ def get_on_patch_border_lines(
 
 
 def get_on_patch_border_orientation(
-    inputs,
-    min_nb_line_per_parcelle,
-    area_min,
-    slope,
-    aspect,
-    time_slope_aspect,
-    time_calculate_orientation,
-    verbose 
+        inputs,
+        min_nb_line_per_parcelle,
+        area_min,
+        slope,
+        aspect,
+        time_slope_aspect,
+        time_calculate_orientation,
+        verbose
 ):
-
     """
         Compute the orientation of the parcels located on the borders of the image patches
 
@@ -966,7 +886,8 @@ def get_on_patch_border_orientation(
         pol, slope, aspect, time_slope_aspect)
 
     if value_mean_aspect is None or value_mean_slope is None:
-        _logger.info(f"[{ID_PARCEL}] Skipping parcel: mean slope value={value_mean_slope}, mean aspect value={value_mean_aspect}")
+        _logger.info(
+            f"[{ID_PARCEL}] Skipping parcel: mean slope value={value_mean_slope}, mean aspect value={value_mean_aspect}")
         return
 
     # Compute orientation
@@ -987,7 +908,8 @@ def get_on_patch_border_orientation(
         kept_lines, vectx, vecty, len_lines, orientation, min_nb_line_per_parcelle, ID_PARCEL)
 
     if orient_dict is not None:
-        pseudo_patches, intersection_shapes = get_pseudo_patches(orient_dict["min_bounding_box"], pol, orient_dict["id_parcel"])
+        pseudo_patches, intersection_shapes = get_pseudo_patches(orient_dict["min_bounding_box"], pol,
+                                                                 orient_dict["id_parcel"])
         orientation = orient_dict["orientations"]
         centroid = orient_dict["centroids"]
         mean_len_lines = orient_dict["mean_len_lines"]
@@ -1008,22 +930,21 @@ def get_on_patch_border_orientation(
 
 
 def handle_on_patch_border_crops(
-    rpg,
-    list_on_border,
-    area_min,
-    slope,
-    aspect,
-    save_fld,
-    normalize,
-    time_orientation_worker,
-    time_calculate_orientation,
-    time_fld,
-    time_inter_mask_open,
-    time_slope_aspect,
-    nb_cores,
-    verbose
+        rpg,
+        list_on_border,
+        area_min,
+        slope,
+        aspect,
+        save_fld,
+        normalize,
+        time_orientation_worker,
+        time_calculate_orientation,
+        time_fld,
+        time_inter_mask_open,
+        time_slope_aspect,
+        nb_cores,
+        verbose
 ):
-
     """
     Method that handles the crops that are on patch border.
 
@@ -1035,7 +956,7 @@ def handle_on_patch_border_crops(
         aspect: the path to the raster containing the aspect values
         save_fld: bool indicating whether or not the segments used to compute the orientations have to be saved in file
         area_min: a parameter used to calculate the minimum number of lines needed to compute the orientation of a parcel in relation to its area
-        normalize: boolean indicating whether or not the image has to be normalized 
+        normalize: boolean indicating whether or not the image has to be normalized
         time_inter_mask_open: shared variable to track process time to open, intersect with RPG and mask the image
         time_slope_aspect: shared variable to track process time to compute slope and aspect
         time_fld: shared variable to track process time to detect segments with FLD algorithm
@@ -1064,12 +985,12 @@ def handle_on_patch_border_crops(
             chunksize=max([1, len(list_on_border) // nb_cores])
         ))
         kept_lines = gpd.geodataframe.GeoDataFrame(pd.concat(kept_lines))
-        
+
         if not kept_lines.empty:
             kept_lines.crs = rpg.crs
             # gather the filtered segments with the same ID_PARCEL using pd.unique
             kept_lines = [(kept_lines.loc[kept_lines["ID_PARCEL"] == id_parcel], rpg.loc[rpg["ID_PARCEL"] == id_parcel])
-                        for id_parcel in pd.unique(kept_lines["ID_PARCEL"])]
+                          for id_parcel in pd.unique(kept_lines["ID_PARCEL"])]
 
             res = list(executor.map(
                 partial(get_on_patch_border_orientation,
@@ -1084,25 +1005,11 @@ def handle_on_patch_border_crops(
                 chunksize=max([1, len(kept_lines) // nb_cores])
             ))
 
-            orientations = []
-            centroids = []
-            list_code_group = []
-            list_code_cultu = []
-            nb_lines_used = []
-            nb_orientations = []
-            mean_len_lines = []
-            std_orientation_x = []
-            std_orientation_y = []
-            mean_slope_list = []
-            mean_aspect_list = []
-            calc_aspect = []
-            indic_orient = []
-            list_ID_PARCEL = []
-            kept_lines = []
-            ID_PARCEL_kept_lines = []
-            rpg_refined = []
-            intersections = []
-            bbox = []
+            orientations, centroids, list_code_group, list_code_cultu, nb_lines_used, nb_orientations, \
+                mean_len_lines, std_orientation_x, std_orientation_y, mean_slope_list, mean_aspect_list, \
+                calc_aspect, indic_orient, list_ID_PARCEL, kept_lines, ID_PARCEL_kept_lines, rpg_refined, \
+                intersections, bbox = ([] for _ in range(19))
+
             for r in res:
                 if r is not None:
                     orientations += r[0]
@@ -1125,28 +1032,15 @@ def handle_on_patch_border_crops(
                     intersections += r[16]
                     bbox += r[17]
 
-            conc_centroids = gpd.GeoDataFrame({"geometry": centroids})
-            conc_centroids['CODE_GROUP'] = list_code_group
-            conc_centroids['CODE_CULTU'] = list_code_cultu
-            conc_centroids.crs = rpg.crs
-
-            # export and save the final linestring orientations :
-            conc_l = MultiLineString(orientations)
-            orientations = gpd.GeoDataFrame(conc_l, columns=['geometry'])
-            orientations['CODE_GROUP'] = list_code_group
-            orientations['CODE_CULTU'] = list_code_cultu
-            orientations['ID_PARCEL'] = list_ID_PARCEL
-            orientations['NB_LINES'] = nb_lines_used
-            orientations['WARNING'] = [
-                f"multiple orientation ({n})" if n > 1 else "None" for n in nb_orientations]
-            orientations['MEAN_LINES'] = [f"{num:.3f}" for num in mean_len_lines]
-            orientations['STD_X_COOR'] = [f"{num:.3f}" for num in std_orientation_x]
-            orientations['STD_Y_COOR'] = [f"{num:.3f}" for num in std_orientation_y]
-            orientations['SLOPE'] = [f"{num:.3f}" for num in mean_slope_list]
-            orientations['ASPECT'] = [f"{num:.3f}" for num in mean_aspect_list]
-            orientations['CAL_ASPECT'] = [f"{num:.3f}" for num in calc_aspect]
-            orientations['IND_ORIENT'] = [f"{num:.3f}" for num in indic_orient]
-            orientations.crs = rpg.crs
+                # Export and save the centroids and linestring orientations
+                conc_centroids, orientations = save_centroids_orientations(calc_aspect, centroids, indic_orient,
+                                                                      list_ID_PARCEL,
+                                                                      list_code_cultu, list_code_group,
+                                                                      mean_aspect_list,
+                                                                      mean_len_lines, mean_slope_list, nb_lines_used,
+                                                                      nb_orientations, orientations, rpg,
+                                                                      std_orientation_x,
+                                                                      std_orientation_y)
 
             if save_fld:
                 df = pd.DataFrame({'geometry': kept_lines})
@@ -1168,21 +1062,22 @@ def handle_on_patch_border_crops(
                 time_orientation_worker.set(
                     time_orientation_worker.value + end_orientation)
                 _logger.info(f"Done ({len(orientations)} orientation(s) found)")
-        
+
         else:
             _logger.info("No line detected on the image's borders.")
-            return gpd.GeoDataFrame([]), gpd.GeoDataFrame([]), gpd.GeoDataFrame([]), gpd.GeoDataFrame([]), gpd.GeoDataFrame([]), gpd.GeoDataFrame([])
+            return gpd.GeoDataFrame([]), gpd.GeoDataFrame([]), gpd.GeoDataFrame([]), gpd.GeoDataFrame(
+                []), gpd.GeoDataFrame([]), gpd.GeoDataFrame([])
 
     return orientations, conc_centroids, kept_lines, rpg_refined, intersections, bbox
 
 
 def get_rpg_patches(
-    img_dataset,
-    RPG,
-    time_split,
-    nb_cores,
-    patch_size=None,
-    mode=""
+        img_dataset,
+        RPG,
+        time_split,
+        nb_cores,
+        patch_size=None,
+        mode=""
 ):
     """
         Construct the lists used for parallelization with multiprocessing.
@@ -1245,8 +1140,9 @@ def get_rpg_patches(
                         with rasterio.open(img_dataset) as dataset:
                             num_rows, num_cols = dataset.shape
 
-                        windows = [rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
-                                for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)]
+                        windows = [
+                            rasterio.windows.Window(j, i, min(num_cols - j, patch_size), min(num_rows - i, patch_size))
+                            for i in range(0, num_rows, patch_size) for j in range(0, num_cols, patch_size)]
 
                         res = list(executor.map(partial(split_windows,
                                                         img_path=img_dataset,
@@ -1258,209 +1154,50 @@ def get_rpg_patches(
                                                 ))
                     else:
                         split_windows(window=None,
-                                    img_path=img_dataset,
-                                    RPG=RPG,
-                                    list_rpg_patches=list_rpg_patches,
-                                    time_split=time_split
-                                    )
+                                      img_path=img_dataset,
+                                      RPG=RPG,
+                                      list_rpg_patches=list_rpg_patches,
+                                      time_split=time_split
+                                      )
 
                 _logger.info("done: {:.3} seconds".format(time_split.value))
                 return list(list_rpg_patches)
 
 
-def main(args):
 
-    # Log params
-    args_dict = vars(args)
-    _logger.info("==================================== PARAMETERS ====================================")
-    for key in args_dict:
-        _logger.info(f"{key}: {args_dict[key]}")
-    _logger.info("================================== READING INPUTS ==================================")
-    start_main = time.process_time()
-    start = datetime.now()
+def save_stats_csv(RPG, args, data, data_norm, header, orientations):
+    codes = []
+    group_ = []
+    rpg = []
+    orients = []
+    multiple = []
+    for code in set(orientations.CODE_CULTU):
+        codes.append(code)
+        filtre = orientations.query("CODE_CULTU == @code")
+        group_ += list(np.unique(filtre.CODE_GROUP))
+        orients.append(len(set(filtre.ID_PARCEL)))
+        rpg.append(len(RPG.query("CODE_CULTU == @code")))
+        multiple.append(sum(filtre.ID_PARCEL.value_counts() > 1))
+    dict = {'CULTURE': codes, 'GROUP': group_, 'len RPG': rpg, 'parcelles orientees': orients,
+            'parcelles multiples': multiple}
+    df = pd.DataFrame(dict)
+    total = df.sum().apply(set_str_to_all)
+    df = df.append(total, ignore_index=True)
+    df['% parcelles orientées'] = round(df['parcelles orientees'] / df['len RPG'] * 100, 2).astype(str) + ' %'
+    df['% parcelles multiples'] = round(df['parcelles multiples'] / df['parcelles orientees'] * 100, 2).astype(
+        str) + ' %'
+    out_stats = os.path.join(args.output_dir, "statistics.csv")
+    df.to_csv(out_stats, index=False)
+    format_line = "{:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {}"
+    _logger.info("================================= PROCESSING TIME ==================================")
+    _logger.info(format_line.format("", *header[:-4]))
+    _logger.info(format_line.format("All processes", *data[:-4]))
+    _logger.info(format_line.format("Per process", *data_norm))
 
-    
-    # Open rpg shapefile
-    _logger.info("Reading RPG shapefile...")
-    RPG = gpd.read_file(args.rpg)
-    _logger.info("done in {:.3} seconds".format(time.process_time() - start_main))
-    crs_rpg = RPG.crs
-    _logger.info(f"CRS RPG : {crs_rpg}")
-    crs = {"init": "epsg:2154"}
-    
-    img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
-                         ) if os.path.isdir(args.img) else args.img
-    _logger.info(f"Image dataset size : {len(img_dataset)}")
 
-    with rasterio.open(img_dataset[0] if isinstance(img_dataset, list) else img_dataset) as dataset:
-        num_rows, num_cols = dataset.shape
-    manager = Manager()
-    time_split = manager.Value("time_split", 0.)
-    time_slope_aspect = manager.Value("time_slope_aspect", 0.)
-    time_fld = manager.Value("time_fld", 0.)
-    time_orientation_worker = manager.Value("time_orientation_worker", 0.)
-    time_calculate_orientation = manager.Value(
-        "time_calculate_orientation", 0.)
-    time_inter_mask_open = manager.Value("time_inter_mask_open", 0.)
-    parcel_ids_processed = manager.list()
 
-    increment = manager.Value('increment', 0)
-
-    len_RPG = len(RPG)
-
-    # Split RPG into patches
-    list_rpg_patches = get_rpg_patches(
-        img_dataset,
-        RPG,
-        time_split,
-        args.nb_cores,
-        patch_size=args.patch_size
-    )
-    _logger.info(f"Patches list size : {len(list_rpg_patches)}")
-
-    _logger.info("============================== ORIENTATION CALCULATION =============================")
-    
-    with concurrent.futures.ProcessPoolExecutor(max_workers=args.nb_cores) as executor:
-
-        list_gdf = list(executor.map(
-            partial(orientation_worker,
-                    normalize=args.normalize,
-                    parcel_ids_processed=parcel_ids_processed,
-                    slope=args.slope,
-                    aspect=args.aspect,
-                    area_min=args.area_min,
-                    increment=increment,
-                    min_nline=args.min_nb_line_per_parcel,
-                    min_len_line=args.min_len_line,
-                    time_inter_mask_open=time_inter_mask_open,
-                    time_slope_aspect=time_slope_aspect,
-                    time_fld=time_fld,
-                    time_orientation_worker=time_orientation_worker,
-                    time_calculate_orientation=time_calculate_orientation,
-                    save_fld=args.save_fld,
-                    verbose=args.verbose),
-            list_rpg_patches,
-            chunksize=max([1, len(img_dataset) // args.nb_cores])
-        ))
-
-    
-    del list_rpg_patches
-
-    start_concat = time.process_time()
-    orientations = gpd.geodataframe.GeoDataFrame(
-        pd.concat([r[0] for r in list_gdf]), crs=crs)
-    orientations.crs = crs
-    orientations.to_crs(crs, inplace=True)
-    out_orient = os.path.join(args.output_dir, "orientations.shp")
-    orientations.to_file(out_orient)
-
-    del orientations
-
-    centroids = gpd.geodataframe.GeoDataFrame(
-        pd.concat([r[1] for r in list_gdf]), crs=crs)
-    centroids.crs = crs
-    out_centroids = os.path.join(args.output_dir, "centroids.shp")
-    centroids.to_file(out_centroids)
-
-    del centroids
-
-    
-    if args.save_fld:
-        kept_lines = gpd.geodataframe.GeoDataFrame(
-            pd.concat([r[2] for r in list_gdf]), crs=crs)
-        kept_lines.crs = crs
-        out_segments = os.path.join(args.output_dir, "kept_lines.shp")
-        kept_lines.to_file(out_segments)
-
-        rpg_patches = gpd.geodataframe.GeoDataFrame(
-            pd.concat([r[3] for r in list_gdf]), crs=crs)
-        rpg_patches.crs = crs
-        out_patches = os.path.join(args.output_dir, "rpg_patches.shp")
-        rpg_patches.to_file(out_patches)
-
-        bbox = gpd.geodataframe.GeoDataFrame(
-            pd.concat([r[5] for r in list_gdf]), crs=crs)
-        bbox.crs = crs
-        out_hulls = os.path.join(args.output_dir, "convex_hulls.shp")
-        bbox.to_file(out_hulls)
-
-        del kept_lines, bbox
-
-    del list_gdf
-
-    _logger.info("========================== HANDLING ON BORDER PATCH PLOTS ==========================")
-
-    list_on_border = get_rpg_patches(
-        img_dataset,
-        RPG,
-        time_split,
-        args.nb_cores,
-        patch_size=args.patch_size,
-        mode="border"
-    )
-    
-    on_border_orient = gpd.geodataframe.GeoDataFrame([])
-    on_border_centroids = gpd.geodataframe.GeoDataFrame([])
-    on_border_lines = gpd.geodataframe.GeoDataFrame([])
-    on_border_rpg_patches = gpd.geodataframe.GeoDataFrame([])
-    on_border_intersections = gpd.geodataframe.GeoDataFrame([])
-    on_border_bbox = gpd.geodataframe.GeoDataFrame([])
-    if list_on_border:
-        on_border_orient, on_border_centroids, on_border_lines, on_border_rpg_patches, on_border_intersections, on_border_bbox = handle_on_patch_border_crops(
-            RPG,
-            list_on_border,
-            args.area_min,
-            args.slope,
-            args.aspect,
-            args.save_fld,
-            args.normalize,
-            time_orientation_worker,
-            time_calculate_orientation,
-            time_fld,
-            time_inter_mask_open,
-            time_slope_aspect,
-            args.nb_cores,
-            args.verbose
-        )
-
-    crs_rpg = RPG.crs
-
-    del list_on_border
-
-    _logger.info("================================== SAVING RESULTS ==================================")
-
-    def sec_to_hms(dt):
-        h = int(dt // 3600)
-        m = int((dt - h*3600) // 60)
-        s = dt - h*3600 - m*60
-
-        h = "0"+str(h) if h < 10 else h
-        m = "0"+str(m) if m < 10 else m
-        s = "0"+str(s) if s < 10 else s
-        return "{}:{}:{:.3}".format(h, m, s)
-
-    start_concat = time.process_time()
-    orientations = gpd.read_file(out_orient)
-
-    orientations = orientations.set_crs('epsg:2154')
-
-    _logger.info(f"Saving {len(orientations)} orientations to {out_orient}")
-    orientations = gpd.geodataframe.GeoDataFrame(
-        pd.concat([orientations, on_border_orient]), crs=crs)
-
-    orientations.crs = crs
-
-    orientations.to_crs(crs, inplace=True)
-    orientations.to_file(out_orient)
-    len_orientation = len(orientations)
-
-    centroids = gpd.read_file(out_centroids)
-    centroids = centroids.set_crs('epsg:2154')
-    _logger.info(f"Saving {len(centroids)} centroids to {out_centroids}")
-    centroids = gpd.geodataframe.GeoDataFrame(
-        pd.concat([centroids, on_border_centroids]), crs=crs)
-    centroids.to_crs(crs, inplace=True)
-
+def save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches,
+             out_segments):
     if args.save_fld:
         kept_lines = gpd.read_file(out_segments)
         kept_lines = kept_lines.set_crs('epsg:2154')
@@ -1488,10 +1225,206 @@ def main(args):
 
         del kept_lines, rpg_patches, bbox
 
+def orientation_compute_save_fld(args, crs, list_gdf):
+    if args.save_fld:
+        kept_lines = gpd.geodataframe.GeoDataFrame(
+            pd.concat([r[2] for r in list_gdf]), crs=crs)
+        kept_lines.crs = crs
+        out_segments = os.path.join(args.output_dir, "kept_lines.shp")
+        kept_lines.to_file(out_segments)
+
+        rpg_patches = gpd.geodataframe.GeoDataFrame(
+            pd.concat([r[3] for r in list_gdf]), crs=crs)
+        rpg_patches.crs = crs
+        out_patches = os.path.join(args.output_dir, "rpg_patches.shp")
+        rpg_patches.to_file(out_patches)
+
+        bbox = gpd.geodataframe.GeoDataFrame(
+            pd.concat([r[5] for r in list_gdf]), crs=crs)
+        bbox.crs = crs
+        out_hulls = os.path.join(args.output_dir, "convex_hulls.shp")
+        bbox.to_file(out_hulls)
+
+        del kept_lines, bbox
+    return out_hulls, out_patches, out_segments
+
+
+
+def border_patch_process(RPG, args, img_dataset, time_calculate_orientation, time_fld, time_inter_mask_open,
+                         time_orientation_worker, time_slope_aspect, time_split):
+    list_on_border = get_rpg_patches(
+        img_dataset,
+        RPG,
+        time_split,
+        args.nb_cores,
+        patch_size=args.patch_size,
+        mode="border"
+    )
+    on_border_orient = gpd.geodataframe.GeoDataFrame([])
+    on_border_centroids = gpd.geodataframe.GeoDataFrame([])
+    on_border_lines = gpd.geodataframe.GeoDataFrame([])
+    on_border_rpg_patches = gpd.geodataframe.GeoDataFrame([])
+    on_border_bbox = gpd.geodataframe.GeoDataFrame([])
+    if list_on_border:
+        on_border_orient, on_border_centroids, on_border_lines, on_border_rpg_patches, on_border_intersections, on_border_bbox = handle_on_patch_border_crops(
+            RPG,
+            list_on_border,
+            args.area_min,
+            args.slope,
+            args.aspect,
+            args.save_fld,
+            args.normalize,
+            time_orientation_worker,
+            time_calculate_orientation,
+            time_fld,
+            time_inter_mask_open,
+            time_slope_aspect,
+            args.nb_cores,
+            args.verbose
+        )
+
+    del list_on_border
+    return on_border_bbox, on_border_centroids, on_border_lines, on_border_orient, on_border_rpg_patches
+
+
+def save_centroids(crs, on_border_centroids, on_border_orient, out_centroids, out_orient):
+    start_concat = time.process_time()
+    orientations = gpd.read_file(out_orient)
+    orientations = orientations.set_crs('epsg:2154')
+    _logger.info(f"Saving {len(orientations)} orientations to {out_orient}")
+    orientations = gpd.geodataframe.GeoDataFrame(
+        pd.concat([orientations, on_border_orient]), crs=crs)
+    orientations.crs = crs
+    orientations.to_crs(crs, inplace=True)
+    orientations.to_file(out_orient)
+    len_orientation = len(orientations)
+    centroids = gpd.read_file(out_centroids)
+    centroids = centroids.set_crs('epsg:2154')
+    _logger.info(f"Saving {len(centroids)} centroids to {out_centroids}")
+    centroids = gpd.geodataframe.GeoDataFrame(
+        pd.concat([centroids, on_border_centroids]), crs=crs)
+    centroids.to_crs(crs, inplace=True)
+    return len_orientation, orientations
+
+
+def orientation_compute_process(args, crs, img_dataset, increment, list_rpg_patches, parcel_ids_processed,
+                                time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker,
+                                time_slope_aspect):
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.nb_cores) as executor:
+        list_gdf = list(executor.map(
+            partial(orientation_worker,
+                    normalize=args.normalize,
+                    parcel_ids_processed=parcel_ids_processed,
+                    slope=args.slope,
+                    aspect=args.aspect,
+                    area_min=args.area_min,
+                    increment=increment,
+                    min_nline=args.min_nb_line_per_parcel,
+                    min_len_line=args.min_len_line,
+                    time_inter_mask_open=time_inter_mask_open,
+                    time_slope_aspect=time_slope_aspect,
+                    time_fld=time_fld,
+                    time_orientation_worker=time_orientation_worker,
+                    time_calculate_orientation=time_calculate_orientation,
+                    save_fld=args.save_fld,
+                    verbose=args.verbose),
+            list_rpg_patches,
+            chunksize=max([1, len(img_dataset) // args.nb_cores])
+        ))
+    del list_rpg_patches
+    start_concat = time.process_time()
+    orientations = gpd.geodataframe.GeoDataFrame(
+        pd.concat([r[0] for r in list_gdf]), crs=crs)
+    orientations.crs = crs
+    orientations.to_crs(crs, inplace=True)
+    out_orient = os.path.join(args.output_dir, "orientations.shp")
+    orientations.to_file(out_orient)
+    del orientations
+    centroids = gpd.geodataframe.GeoDataFrame(
+        pd.concat([r[1] for r in list_gdf]), crs=crs)
+    centroids.crs = crs
+    out_centroids = os.path.join(args.output_dir, "centroids.shp")
+    centroids.to_file(out_centroids)
+    del centroids
+    return list_gdf, out_centroids, out_orient
+
+
+def main(args):
+    # Log params
+    args_dict = vars(args)
+    _logger.info("==================================== PARAMETERS ====================================")
+    for key in args_dict:
+        _logger.info(f"{key}: {args_dict[key]}")
+    _logger.info("================================== READING INPUTS ==================================")
+    start_main = time.process_time()
+    start = datetime.now()
+
+    # Open rpg shapefile
+    _logger.info("Reading RPG shapefile...")
+    RPG = gpd.read_file(args.rpg)
+    _logger.info("done in {:.3} seconds".format(time.process_time() - start_main))
+    crs_rpg = RPG.crs
+    _logger.info(f"CRS RPG : {crs_rpg}")
+    crs = {"init": "epsg:2154"}
+
+    img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
+                         ) if os.path.isdir(args.img) else args.img
+    _logger.info(f"Image dataset size : {len(img_dataset)}")
+
+    manager = Manager()
+    time_split = manager.Value("time_split", 0.)
+    time_slope_aspect = manager.Value("time_slope_aspect", 0.)
+    time_fld = manager.Value("time_fld", 0.)
+    time_orientation_worker = manager.Value("time_orientation_worker", 0.)
+    time_calculate_orientation = manager.Value(
+        "time_calculate_orientation", 0.)
+    time_inter_mask_open = manager.Value("time_inter_mask_open", 0.)
+    parcel_ids_processed = manager.list()
+
+    increment = manager.Value('increment', 0)
+
+    len_RPG = len(RPG)
+
+    # Split RPG into patches
+    list_rpg_patches = get_rpg_patches(
+        img_dataset,
+        RPG,
+        time_split,
+        args.nb_cores,
+        patch_size=args.patch_size
+    )
+    _logger.info(f"Patches list size : {len(list_rpg_patches)}")
+
+    _logger.info("============================== ORIENTATION CALCULATION =============================")
+
+    list_gdf, out_centroids, out_orient = orientation_compute_process(args, crs, img_dataset, increment,
+                                                                      list_rpg_patches, parcel_ids_processed,
+                                                                      time_calculate_orientation, time_fld,
+                                                                      time_inter_mask_open, time_orientation_worker,
+                                                                      time_slope_aspect)
+
+    out_hulls, out_patches, out_segments = orientation_compute_save_fld(args, crs, list_gdf)
+
+    del list_gdf
+
+    _logger.info("========================== HANDLING ON BORDER PATCH PLOTS ==========================")
+
+    on_border_bbox, on_border_centroids, on_border_lines, on_border_orient, on_border_rpg_patches = border_patch_process(
+        RPG, args, img_dataset, time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker,
+        time_slope_aspect, time_split)
+
+    _logger.info("================================== SAVING RESULTS ==================================")
+
+    len_orientation, orientations = save_centroids(crs, on_border_centroids, on_border_orient, out_centroids,
+                                                   out_orient)
+
+    save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches,
+             out_segments)
+
     time_main = time.process_time() - start_main
 
     data = list(map(sec_to_hms,
-                    [time_main+time_orientation_worker.value,
+                    [time_main + time_orientation_worker.value,
                      time_main,
                      time_orientation_worker.value,
                      time_slope_aspect.value,
@@ -1501,7 +1434,7 @@ def main(args):
                     )
                 )
     data_norm = list(map(sec_to_hms,
-                         [time_main+time_orientation_worker.value / args.nb_cores,
+                         [time_main + time_orientation_worker.value / args.nb_cores,
                           time_main,
                           time_orientation_worker.value / args.nb_cores,
                           time_slope_aspect.value / args.nb_cores,
@@ -1510,7 +1443,7 @@ def main(args):
                          )
                      )
     data += [len_orientation, len_RPG,
-             f"{int(100*len_orientation/len_RPG)}%"]
+             f"{int(100 * len_orientation / len_RPG)}%"]
     header = ["all", "main", "worker", "slope_aspect", "fld", "img_processing",
               "calculate_orientation", "num_orientations", "RPG_length", "ratio"]
 
@@ -1522,57 +1455,35 @@ def main(args):
         csv_writer.writerow(data)
 
     # Save statistics to csv
-    codes = []
-    group_ = []
-    rpg = []
-    orients = []
-    multiple = []
-    for code in set(orientations.CODE_CULTU):
-        codes.append(code)
-        filtre = orientations.query("CODE_CULTU == @code")
-        group_ += list(np.unique(filtre.CODE_GROUP))
-        orients.append(len(set(filtre.ID_PARCEL)))
-        rpg.append(len(RPG.query("CODE_CULTU == @code")))
-        multiple.append(sum(filtre.ID_PARCEL.value_counts() > 1))
-
-    dict = {'CULTURE': codes, 'GROUP': group_, 'len RPG' : rpg, 'parcelles orientees': orients,
-            'parcelles multiples': multiple}
-    df = pd.DataFrame(dict)
-    total = df.sum().apply(set_str_to_all)
-    df = df.append(total, ignore_index=True)
-    df['% parcelles orientées'] = round(df['parcelles orientees'] / df['len RPG'] * 100, 2).astype(str) + ' %'
-    df['% parcelles multiples'] = round(df['parcelles multiples'] / df['parcelles orientees'] * 100, 2).astype(str) + ' %'
-
-    out_stats = os.path.join(args.output_dir, "statistics.csv")
-    df.to_csv(out_stats, index=False)
-
-    format_line = "{:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {}"
-    _logger.info("================================= PROCESSING TIME ==================================")
-    _logger.info(format_line.format("", *header[:-4]))
-    _logger.info(format_line.format("All processes", *data[:-4]))
-    _logger.info(format_line.format("Per process", *data_norm))
+    save_stats_csv(RPG, args, data, data_norm, header, orientations)
 
     end = datetime.now() - start
     _logger.info(f'OVERALL TIME = {end}')
-    
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Detection of crop orientation on BDORTHO and PHR images')
-    parser.add_argument('-img', '--img', metavar='[IMAGE]', help='Image path or directory containing the images', required=True)
+    parser.add_argument('-img', '--img', metavar='[IMAGE]', help='Image path or directory containing the images',
+                        required=True)
     parser.add_argument('-rpg', '--rpg', metavar='[RPG]', help='Input RPG shapefile', required=True)
     parser.add_argument('-o', '--output_dir', default=None, help='Output directory where to store results')
     parser.add_argument('-slope', '--slope', help="Path to the slope file", required=True)
     parser.add_argument('-aspect', '--aspect', help="Path to the aspect file", required=True)
     parser.add_argument('-nb_cores', '--nb_cores', type=int, default=5)
-    parser.add_argument('-type', '--type', metavar='[TYPE]', help='file extension of the images (tif or jp2)', default="tif")
-    parser.add_argument('-normalize', '--normalize', help="Normalize the image before line detection", action="store_true")
+    parser.add_argument('-type', '--type', metavar='[TYPE]', help='file extension of the images (tif or jp2)',
+                        default="tif")
+    parser.add_argument('-normalize', '--normalize', help="Normalize the image before line detection",
+                        action="store_true")
     parser.add_argument('-save_fld', '--save_fld', help="save additional files", action="store_true")
     parser.add_argument('-verbose', '--verbose', help="print messages along process", action="store_true")
     parser.add_argument('-patch_size', '--patch_size', help="Size of image patches", type=int, default=10000)
-    parser.add_argument('-area_min', '--area_min', help="Minimum area of plot to handle. Leave to default.", type=float, default=20000.)
-    parser.add_argument('-min_nline', '--min_nb_line_per_parcel', help="minimum valid number of segments inside a parcel", type=int, default=10)
-    parser.add_argument('-min_len_line', '--min_len_line', help="minimum length (meters) for a valid segment", type=int, default=6)
+    parser.add_argument('-area_min', '--area_min', help="Minimum area of plot to handle. Leave to default.", type=float,
+                        default=20000.)
+    parser.add_argument('-min_nline', '--min_nb_line_per_parcel',
+                        help="minimum valid number of segments inside a parcel", type=int, default=10)
+    parser.add_argument('-min_len_line', '--min_len_line', help="minimum length (meters) for a valid segment", type=int,
+                        default=6)
 
     parser.print_help()
     args = parser.parse_args()
@@ -1587,6 +1498,5 @@ if __name__ == "__main__":
     )
     _logger = logging.getLogger(__name__)
     logging.getLogger("fiona").setLevel(logging.ERROR)
-
 
     main(args)
