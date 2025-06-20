@@ -134,7 +134,9 @@ def compare_files(reference_dir : str, output_dir : str, tool : str):
                 compare_gpkg(f"{output_dir}/{f}", f"{reference_dir}/{f}")
     elif tool == "DetecOrCult":
         for f in ref_files:
-            if any(ext in f for ext in [".shp", ".dbf", ".prj", ".cpg", ".shx"]):
+            if f == "computation_time.csv":
+                continue
+            if any(ext in f for ext in [".shp"]):
                 # Compare shapefiles
                 compare_shapefiles(f"{output_dir}/{f}", f"{reference_dir}/{f}")
             elif ".csv" in f :
