@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
         setup(name='eolabtools',
               version="0.0.0",
-              description="Collection of tools for data",
+              description="Collection of tools for satellite imagery analysis",
               long_description=long_description,
               long_description_content_type="text/x-rst",
               classifiers=[],
@@ -43,9 +43,10 @@ if __name__ == "__main__":
               include_package_data=True,
               zip_safe=False,
               setup_requires = ["setuptools_scm"],
-              install_requires=read_requirements(["src/eolabtools/sun_map_generation/requirements.yml",
-                                                  "src/eolabtools/night_osm_registration/requirements.yml",
-                                                  "src/eolabtools/detection_orientation_culture/environment.yml"]),
+              install_requires=read_requirements([]),
+              # "src/eolabtools/sun_map_generation/requirements.yml",
+              # "src/eolabtools/night_osm_registration/requirements.yml",
+              # "src/eolabtools/detection_orientation_culture/environment.yml"
               python_requires='>=3.8.13',
               use_scm_version={"version_scheme": "no-guess-dev"},
               entry_points={

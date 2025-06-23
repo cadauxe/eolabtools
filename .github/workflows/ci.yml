@@ -45,8 +45,10 @@ jobs:
     - name: Create test env
       shell: bash -l {0}
       run: |
-        conda env create -f src/eolabtools/detection_orientation_culture/environment.yml
+        conda create -n orcult_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
         conda activate orcult_env
+        conda env update -f src/eolabtools/detection_orientation_culture/environment.yml
+        conda env update -f src/eolabtools/sun_map_generation/requirements.yml
     - name: test
       shell: bash -l {0}
       run: |

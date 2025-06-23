@@ -1,5 +1,5 @@
 from conftest import EOLabtoolsTestsPath
-import geopandas as gpd
+# import geopandas as gpd
 import rasterio
 import numpy as np
 import os
@@ -8,7 +8,7 @@ from glob import glob
 
 import shutil
 import filecmp
-import fiona
+# import fiona
 import pandas as pd
 
 def clear_outdir(dir_path):
@@ -61,39 +61,39 @@ def compare_tif(file1, file2, atol=1e-10):
             # raise ValueError(f"TIFF pixel values differ.")
 
 
-def compare_gpkg(file1, file2):
-    layers1 = fiona.listlayers(file1)
-    layers2 = fiona.listlayers(file2)
-
-    common_layers = set(layers1).intersection(layers2)
-
-    for layer in common_layers:
-        gdf1 = gpd.read_file(file1, layer=layer)
-        gdf2 = gpd.read_file(file2, layer=layer)
-
-        # Sort by non-geometry columns for alignment
-        sort_cols = [col for col in gdf1.columns if col != 'geometry']
-        gdf1 = gdf1.sort_values(by=sort_cols).reset_index(drop=True)
-        gdf2 = gdf2.sort_values(by=sort_cols).reset_index(drop=True)
-
-        for idx, (row1, row2) in enumerate(zip(gdf1.itertuples(index=False), gdf2.itertuples(index=False))):
-            geom1 = row1.geometry
-            geom2 = row2.geometry
-
-            for attr_name in gdf1.columns:
-                if attr_name == 'geometry': # Geometry check
-                    if geom1 is None and geom2 is None:
-                        pass
-                    elif (geom1 is None) != (geom2 is None) or not geom1.equals(geom2):
-                        raise ValueError(f"GPKG files differ.")
-                else : # Attribute check
-                    val1 = getattr(row1, attr_name)
-                    val2 = getattr(row2, attr_name)
-                    if not((pd.isna(val1) and pd.isna(val2)) or (val1 == val2)):
-                        print(f"  Row {idx}: Attribute '{attr_name}' mismatch")
-                        print(f"    File1: {val1}")
-                        print(f"    File2: {val2}")
-                        raise ValueError(f"GPKG files differ.")
+# def compare_gpkg(file1, file2):
+#     layers1 = fiona.listlayers(file1)
+#     layers2 = fiona.listlayers(file2)
+#
+#     common_layers = set(layers1).intersection(layers2)
+#
+#     for layer in common_layers:
+#         gdf1 = gpd.read_file(file1, layer=layer)
+#         gdf2 = gpd.read_file(file2, layer=layer)
+#
+#         # Sort by non-geometry columns for alignment
+#         sort_cols = [col for col in gdf1.columns if col != 'geometry']
+#         gdf1 = gdf1.sort_values(by=sort_cols).reset_index(drop=True)
+#         gdf2 = gdf2.sort_values(by=sort_cols).reset_index(drop=True)
+#
+#         for idx, (row1, row2) in enumerate(zip(gdf1.itertuples(index=False), gdf2.itertuples(index=False))):
+#             geom1 = row1.geometry
+#             geom2 = row2.geometry
+#
+#             for attr_name in gdf1.columns:
+#                 if attr_name == 'geometry': # Geometry check
+#                     if geom1 is None and geom2 is None:
+#                         pass
+#                     elif (geom1 is None) != (geom2 is None) or not geom1.equals(geom2):
+#                         raise ValueError(f"GPKG files differ.")
+#                 else : # Attribute check
+#                     val1 = getattr(row1, attr_name)
+#                     val2 = getattr(row2, attr_name)
+#                     if not((pd.isna(val1) and pd.isna(val2)) or (val1 == val2)):
+#                         print(f"  Row {idx}: Attribute '{attr_name}' mismatch")
+#                         print(f"    File1: {val1}")
+#                         print(f"    File2: {val2}")
+#                         raise ValueError(f"GPKG files differ.")
 
 
 def compare_files(reference_dir : str, output_dir : str, tool : str):
