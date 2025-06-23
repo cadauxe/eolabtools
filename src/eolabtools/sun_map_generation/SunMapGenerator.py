@@ -40,7 +40,6 @@ def find_timezone(in_file) -> str :
     """
     # Extract longitude and latitude from input data
     _, latitude, longitude = get_resolution_and_geolocation(in_file)
-    print(get_resolution_and_geolocation(in_file))
 
     # object creation
     obj = TimezoneFinder()
@@ -93,10 +92,10 @@ def merge_dates_and_times(dates_list, times_list):
     return return_list
 
 
-def to_utc_time(in_file, time):
+def to_utc_time(in_file, time, area):
 
     # Define the timezone for area
-    tz = pytz.timezone(find_timezone(in_file))
+    tz = pytz.timezone(area)
 
     # Create a datetime object in the Paris timezone
     dt = tz.localize(time)
@@ -107,7 +106,7 @@ def to_utc_time(in_file, time):
     return utc_dt
 
 
-def get_azimuth_and_elevation(in_file, datetimes, longitude, latitude):
+def get_azimuth_and_elevation(in_file, datetimes, longitude, latitude, area):
 
     # Create an object to represent the sun
     sun = ephem.Sun()
@@ -117,7 +116,7 @@ def get_azimuth_and_elevation(in_file, datetimes, longitude, latitude):
     _logger.info(f"Computing azimuth and elevation for day {datetimes[0].strftime('%Y/%m/%d')}")
     for date in datetimes:
         # transform to UTC
-        date = to_utc_time(in_file, date)
+        date = to_utc_time(in_file, date, area)
 
         # Set the date and time for which you want to calculate the azimuth and elevation
         date = ephem.Date(date.strftime('%Y/%m/%d %H:%M:%S'))
@@ -175,6 +174,8 @@ def get_resolution_and_geolocation(file):
     srs.ImportFromWkt(dataset.GetProjection())
     srs_latlong = srs.CloneGeogCS()
     ct = osr.CoordinateTransformation(srs, srs_latlong)
+    print(type(center_x))
+    print("/"*20)
     center_lat, center_lon, _ = ct.TransformPoint(center_x, center_y)
 
     return pixel_size_x, center_lat, center_lon
@@ -293,7 +294,7 @@ def get_neighbors(tiles, tile_name):
 
 
 def generate_sun_map(dsm_file, dsm_tiles, start_date, end_date, step_date, start_time, end_time, step_time, output_dir,
-                     time_az_el, time_mask_exec):
+                     area, time_az_el, time_mask_exec):
 
     # get resolution in meters of dsm file
     _logger.info("----------------------------------------------------------------------------------------------------")
@@ -315,7 +316,7 @@ def generate_sun_map(dsm_file, dsm_tiles, start_date, end_date, step_date, start
 
     # compute azimuth, elevation for each datetime
     start_az_el_time = time.time()
-    list_of_azimuths, list_of_elevations = zip(*(get_azimuth_and_elevation(dsm_file, dt, longitude, latitude)
+    list_of_azimuths, list_of_elevations = zip(*(get_azimuth_and_elevation(dsm_file, dt, longitude, latitude, area)
                                                  for dt in list_of_datetimes))
     end_az_el_time = time.time() - start_az_el_time
     time_az_el.set(time_az_el.value + end_az_el_time)
@@ -433,7 +434,7 @@ def code_raster(stacked_array):
     return new_array, quadruplet_dict
 
 
-def generate_sun_time_vector(files, time_polygonize, time_dissolve, occ_changes=4):
+def generate_sun_time_vector(files, time_polygonize, time_dissolve, area, occ_changes=4):
 
     files = files[0] # first day for now
     prefix = files[0][:-9]
@@ -443,8 +444,7 @@ def generate_sun_time_vector(files, time_polygonize, time_dissolve, occ_changes=
         width = src.width
         profile = src.profile
 
-    timezone = find_timezone(files[0])
-    tz = pytz.timezone(timezone)
+    tz = pytz.timezone(area)
     times = [tz.localize(datetime.strptime(date_string[-17:-4], "%Y%m%d-%H%M")) for date_string in files]
     timestamps = [int(time.timestamp()) for time in times]
 
@@ -508,7 +508,7 @@ def generate_sun_time_vector(files, time_polygonize, time_dissolve, occ_changes=
 
     def safe_convert(x):
         if x > 0:
-            return pd.to_datetime(x, unit='s', utc=True).tz_convert(timezone).tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
+            return pd.to_datetime(x, unit='s', utc=True).tz_convert(area).tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
         elif x == -1:
             return pd.NaT
         else:
@@ -720,6 +720,9 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(1)
 
+    # Find automatically the timezone of file's location
+    area = find_timezone(paths[0])
+
     with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
 
         all_files_created = list(executor.map(partial(generate_sun_map,
@@ -731,6 +734,7 @@ if __name__ == '__main__':
                                                       end_time=end_time,
                                                       step_time=step_time,
                                                       output_dir=output_dir,
+                                                      area=area,
                                                       time_az_el=time_azimuth_elevation_computation,
                                                       time_mask_exec=time_shadow_mask_execution),
                                               paths))
@@ -749,6 +753,7 @@ if __name__ == '__main__':
         _logger.info("Creating sun time vector")
         with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
             sun_time_vector_paths = list(executor.map(partial(generate_sun_time_vector,
+                                                              area = area,
                                                               occ_changes=nb_changes_a_day,
                                                               time_polygonize=time_polygonize_coded_raster,
                                                               time_dissolve=time_dissolve_geometries),
