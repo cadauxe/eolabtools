@@ -54,7 +54,7 @@ jobs:
     - name: test
       shell: bash -l {0}
       run: |
-        conda activate orcult_env
+        conda activate eolab_23_06
         pytest -s tests --cov-fail-under=65
 #        pytest -s tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture/detection_orientation_culture --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
     - name: Upload Coverage Report
