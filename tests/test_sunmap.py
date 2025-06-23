@@ -94,8 +94,6 @@ def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     print(result.stderr)
 
-    os.remove(f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/listing_2tiles.lst")
-
     compare_files(reference_dir = f"{eolabtools_paths.sunmap_ref}/test_2tiles_low_res",
                   output_dir = f"{eolabtools_paths.sunmap_outdir}/test_2tiles_low_res",
                   tool = "SunMapGen")
