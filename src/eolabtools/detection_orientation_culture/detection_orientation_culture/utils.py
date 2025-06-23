@@ -544,28 +544,30 @@ def save_centroids_orientations(
         std_orientation_y
 ):
     # Export and save the centroids
-    centroids = gpd.GeoDataFrame({"geometry": centroids})
-    centroids['CODE_GROUP'] = list_code_group
-    centroids['CODE_CULTU'] = list_code_cultu
-    centroids.crs = rpg.crs
-    # Export and save the final linestring orientations
-    orientations = gpd.GeoDataFrame(
-        MultiLineString(orientations), columns=['geometry'])
-    orientations['CODE_GROUP'] = list_code_group
-    orientations['CODE_CULTU'] = list_code_cultu
-    orientations['ID_PARCEL'] = list_ID_PARCEL
-    orientations['NB_LINES'] = nb_lines_used
-    orientations['WARNING'] = [
-        f"multiple orientations ({n})" if n > 1 else "None" for n in nb_orientations]
-    orientations['MEAN_LINES'] = [f"{num:.3f}" for num in mean_len_lines]
-    orientations['STD_X_COOR'] = [f"{num:.3f}" for num in std_orientation_x]
-    orientations['STD_Y_COOR'] = [f"{num:.3f}" for num in std_orientation_y]
-    orientations['SLOPE'] = [f"{num:.3f}" for num in mean_slope_list]
-    orientations['ASPECT'] = [f"{num:.3f}" for num in mean_aspect_list]
-    orientations['CAL_ASPECT'] = [f"{num:.3f}" for num in calc_aspect]
-    orientations['IND_ORIENT'] = [f"{num:.3f}" for num in indic_orient]
-    orientations.crs = rpg.crs
-    return centroids, orientations
+    centroids = gpd.GeoDataFrame({
+        "geometry": centroids,
+        "CODE_GROUP": list_code_group,
+        "CODE_CULTU": list_code_cultu,
+    })
+    centroids.set_crs(rpg.crs, inplace=True)
+
+    orientations_gdf = gpd.GeoDataFrame([{
+        "geometry": MultiLineString(orientations),
+        "CODE_GROUP": list_code_group[0],
+        "CODE_CULTU": list_code_cultu[0],
+        "ID_PARCEL": list_ID_PARCEL[0],
+        "NB_LINES": nb_lines_used[0],
+        "WARNING": f"multiple orientations ({nb_orientations[0]})" if nb_orientations[0] > 1 else "None",
+        "MEAN_LINES": f"{mean_len_lines[0]:.3f}",
+        "STD_X_COOR": f"{std_orientation_x[0]:.3f}",
+        "STD_Y_COOR": f"{std_orientation_y[0]:.3f}",
+        "SLOPE": f"{mean_slope_list[0]:.3f}",
+        "ASPECT": f"{mean_aspect_list[0]:.3f}",
+        "CAL_ASPECT": f"{calc_aspect[0]:.3f}",
+        "IND_ORIENT": f"{indic_orient[0]:.3f}",
+    }], geometry='geometry')
+    orientations_gdf.set_crs(rpg.crs, inplace=True)
+    return centroids, orientations_gdf
 
 
 def fld_segment_detect(crs, img, profile, rpg, time_fld, patch_border = False):

@@ -43,8 +43,39 @@ def compare_csv(file1, file2):
 
 
 def compare_shapefiles(file1, file2):
+    """
+    Compare two shapefiles.
+
+    Raises:
+        ValueError: If shapefiles are different
+    """
     if not filecmp.cmp(file1, file2, shallow=False):
         raise ValueError(f"Error comparing {file1} and {file2}")
+
+
+
+def equal_lines_content(gdf_ref, gdf_test, ref_cols) -> bool:
+    """
+    """
+    for idx in range(len(gdf_ref)):
+        for col in ref_cols:
+            ref_val = gdf_ref.iloc[idx][col]
+            test_val = gdf_test.iloc[idx][col]
+
+            if col == 'geometry':
+                # Compare geometries
+                if ref_val is None and test_val is None:
+                    pass
+                elif (ref_val is None) != (test_val is None) or not ref_val.equals(test_val):
+                    return False
+            else:
+                # Compare attributes
+                if not (pd.isna(ref_val) and pd.isna(test_val)) and str(ref_val) != str(test_val):
+                    print(f"  Row {idx}: Attribute '{col}' mismatch")
+                    print(f"    File1: {ref_val}")
+                    print(f"    File2: {test_val}")
+                    return False
+    return True
 
 
 def compare_tif(file1, file2, atol=1e-10):
@@ -57,8 +88,10 @@ def compare_tif(file1, file2, atol=1e-10):
         arr1 = src1.read()
         arr2 = src2.read()
         if not np.allclose(arr1, arr2, atol=atol):
-            print(f"TIFF pixel values differ.")
-            # raise ValueError(f"TIFF pixel values differ.")
+            raise ValueError(f"TIFF pixel values differ.")
+
+    print("TIFF files are identical.")
+    return True
 
 
 # def compare_gpkg(file1, file2):
