@@ -1,5 +1,3 @@
-channels:
-  - defaults
 dependencies:
   - pip:
       - asttokens==2.2.1
