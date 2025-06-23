@@ -1182,7 +1182,8 @@ def save_stats_csv(RPG, args, data, data_norm, header, orientations):
             'parcelles multiples': multiple}
     df = pd.DataFrame(dict)
     total = df.sum().apply(set_str_to_all)
-    df = df.append(total, ignore_index=True)
+    # df = df.append(total, ignore_index=True)
+    df = pd.concat([df, pd.DataFrame([total])], ignore_index=True)
     df['% parcelles orientées'] = round(df['parcelles orientees'] / df['len RPG'] * 100, 2).astype(str) + ' %'
     df['% parcelles multiples'] = round(df['parcelles multiples'] / df['parcelles orientees'] * 100, 2).astype(
         str) + ' %'
