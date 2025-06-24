@@ -5,3 +5,4 @@
 *.dbf
 *.png
 *.pyc
+*.ipynb_checkpoints
