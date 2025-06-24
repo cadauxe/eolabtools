@@ -48,15 +48,18 @@ jobs:
         conda create -n eolab_23_06 python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
         conda activate eolab_23_06
         conda env update -f src/eolabtools/detection_orientation_culture/environment.yml
+#        conda env update -f src/eolabtools/sun_map_generation/requirements.yml
+        conda env update -f src/eolabtools/night_osm_registration/requirements.yml
         pip install georastertools --no-binary rasterio
-        pip install . --force-reinstall --no-cache-dir
+        pip install --force-reinstall -r src/eolabtools/sun_map_generation/requirements.txt --no-cache-dir
+        pip install . 
         pip install pylint mccabe
     - name: Tests
       shell: bash -l {0}
       run: |
         conda activate eolab_23_06
-        pytest -s tests --cov-fail-under=65
-        pytest -s tests --cov=src/eolabtools --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
+        pytest tests --cov-fail-under=65
+        pytest tests --cov=src/eolabtools --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
     - name: Upload Coverage Report
       uses: actions/upload-artifact@v4
       with:

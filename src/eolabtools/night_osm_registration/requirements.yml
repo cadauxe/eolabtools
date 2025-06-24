@@ -1,10 +1,12 @@
-pyogrio
-shapely>=2
-geopandas
-pyrosm
-scikit-image
-opencv-python
-pytest
-pytest-cov
-matplotlib
-pyyaml
+dependencies:
+  - pip:
+    - pyogrio
+    - shapely>=2
+#    - geopandas
+    - pyrosm
+    - scikit-image
+#    - opencv-python
+    - pytest
+    - pytest-cov
+    - matplotlib
+    - pyyaml
