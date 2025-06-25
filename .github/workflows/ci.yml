@@ -48,12 +48,18 @@ jobs:
         conda create -n eolab_23_06 python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
         conda activate eolab_23_06
         conda env update -f src/eolabtools/detection_orientation_culture/environment.yml
-#        conda env update -f src/eolabtools/sun_map_generation/requirements.yml
-        conda env update -f src/eolabtools/night_osm_registration/requirements.yml
-        pip install georastertools --no-binary rasterio
+#        conda env update -f src/eolabtools/night_osm_registration/requirements.yml
+#        pip install georastertools --no-binary rasterio
         pip install --force-reinstall -r src/eolabtools/sun_map_generation/requirements.txt --no-cache-dir
         pip install . 
         pip install pylint mccabe
+#        Alternative
+#        conda create -n eolab_else python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+#        conda activate eolab_else
+#        pip install georastertools --no-binary rasterio
+#        pip install pyyaml ephem scikit-learn timezonefinder scikit-image opencv-contrib-python pyrosm rasterstats
+#        pip install .
+#        pip install gdal==3.5.0 --no-cache-dir --force-reinstall
     - name: Tests
       shell: bash -l {0}
       run: |

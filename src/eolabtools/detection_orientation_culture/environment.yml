@@ -7,7 +7,7 @@ dependencies:
       - decorator==5.1.1
       - executing==1.2.0
       - fiona==1.8.21
-      - geopandas==0.12.2
+#      - geopandas==0.12.2
       - ipykernel==6.23.2
       - ipython==8.14.0
       - jedi==0.18.2
@@ -35,10 +35,13 @@ dependencies:
       - pytz==2022.7.1
       - pyzmq==25.1.0
 #      - "rasterio --no-binary rasterio"
+      - "georastertools --no-binary rasterio"
       - rasterstats
       - rtree==1.0.1
       - scikit-learn==1.2.1
       - scipy==1.8
+      - sphinxcontrib-bibtex
+      - sphinx_rtd_theme
       - stack-data==0.6.2
       - threadpoolctl==3.1.0
       - traitlets==5.9.0
