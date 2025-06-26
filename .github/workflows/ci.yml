@@ -1,0 +1,51 @@
+name: CI Workflow
+
+on:
+  pull_request:
+    branches:
+      - "main"
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python 3.11.12
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.11.12"
+      - name: Create test env
+        shell: bash -l {0}
+        run: |
+          pip install pylint mccabe
+      - name: Run Pylint
+        shell: bash -l {0}
+        run: |
+            pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools/night_osm_registration/
+      - name: Run McCabe Complexity Check
+        shell: bash -l {0}
+        run: |
+            ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        auto-activate-base: false
+    - name: Create test env
+      shell: bash -l {0}
+      run: |
+        conda create -n test_env
+        conda activate test_env
+        conda install otb=8.0.1 rasterio -c iota2 -c conda-forge
+        pip install -e .
+        pip install pylint mccabe
+    - name: test
+      shell: bash -l {0}
+      run: |
+        conda activate test_env
+        pytest -s --cov-fail-under=65
