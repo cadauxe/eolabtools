@@ -11,6 +11,8 @@ dependencies = [
     "pyogrio",
     "shapely>=2",
     "geopandas",
+    "jinja2>=3.1",
+    "markupsafe>=2.0",
     "pyrosm",
     "rasterio",
     "scikit-image",
