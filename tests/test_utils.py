@@ -3,6 +3,7 @@ import geopandas as gpd
 import numpy as np
 import os
 import yaml
+import rasterio
 from glob import glob
 
 import shutil
