@@ -39,8 +39,9 @@ jobs:
     - name: Create test env
       shell: bash -l {0}
       run: |
-        conda create -n test_env python=3.11 gdal=3.11.0 pyrosm -c conda-forge
+        conda create -n test_env python=3.11 gdal=3.11.0 -c conda-forge
         conda activate test_env
+        pip install "MarkupSafe>=2.0"
         pip install .
         pip install pylint mccabe
     - name: test
