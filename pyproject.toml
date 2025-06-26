@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61", "wheel","jinja2>=3.1", "markupsafe>=2.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "night_osm_registration"
+description = "Library to compute shift in nighttime imagery based on OSM vector features"
+requires-python = ">=3.7"
+keywords = ["gis", "remote sensing", "nighttime imagery"]
+dependencies = [
+    "numpy",
+    "gdal==3.11.0",
+    "pyogrio",
+    "shapely>=2",
+    "geopandas",
+    "pyrosm",
+    "rasterio",
+    "scikit-image",
+    "opencv-python",
+    "matplotlib",
+    "pytest",
+    "pytest-cov",
+    "pyyaml",
+]
+readme = "README.md"
+license = { file = "LICENSE.txt" }
+dynamic = ["version"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+homepage = "https://gitlab.cnes.fr/eolab/processing/night_osm_registration"
+repository = "https://gitlab.cnes.fr/eolab/processing/night_osm_registration"
+
+[project.scripts]
+night_osm_image_registration = "eolabtools.night_osm_registration.register_image:main"
+night_osm_vector_registration = "eolabtools.night_osm_registration.register_vector:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "eolabtools.night_osm_registration.__version__" }
