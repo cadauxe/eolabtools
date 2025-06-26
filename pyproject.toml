@@ -11,7 +11,7 @@ dependencies = [
     "pyogrio",
     "shapely>=2",
     "geopandas",
-#    "pyrosm",
+    "pyrosm",
     "rasterio",
     "scikit-image",
     "opencv-python",
