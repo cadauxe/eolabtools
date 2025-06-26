@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "wheel", "jinja2>=3.1", "markupsafe>=2.0"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,8 +13,6 @@ dependencies = [
     "pyogrio",
     "shapely>=2",
     "geopandas",
-    "jinja2>=3.1",
-    "markupsafe>=2.0",
     "pyrosm",
     "rasterio",
     "scikit-image",
