@@ -56,17 +56,12 @@ if __name__ == "__main__":
                   "pytest-cov",
                   "pyyaml",
               ],
-              # install_requires=read_requirements(["src/eolabtools/sun_map_generation/requirements.yml",
-              #                                     "src/eolabtools/night_osm_registration/requirements.yml"]),
-              # "src/eolabtools/sun_map_generation/requirements.yml",
-              # "src/eolabtools/night_osm_registration/requirements.yml",
-              # "src/eolabtools/detection_orientation_culture/environment.yml"
               python_requires='<3.12',
               use_scm_version={"version_scheme": "no-guess-dev"},
               entry_points={
                   "console_scripts": [
-                      "night_osm_image_registration = eolabtools.night_osm_registration.register_image:main",
-                      "night_osm_vector_registration = eolabtools.night_osm_registration.register_vector:main",
+                      "night_osm_image_registration = src.eolabtools.night_osm_registration.register_image:main",
+                      "night_osm_vector_registration = src.eolabtools.night_osm_registration.register_vector:main",
                   ],
               },
               )
