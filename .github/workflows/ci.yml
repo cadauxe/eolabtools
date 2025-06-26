@@ -41,7 +41,6 @@ jobs:
       run: |
         conda create -n test_env python=3.11 gdal=3.11.0 -c conda-forge
         conda activate test_env
-        pip install "MarkupSafe>=2.0"
         pip install .
         pip install pylint mccabe
     - name: test
