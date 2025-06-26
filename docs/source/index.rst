@@ -2,7 +2,7 @@
 EOLabtools
 ====================
 
-INTRO
+Eolabtools is a collection of tools for satellite imagery analysis.
 
 Content
 ==================
@@ -22,11 +22,10 @@ Content
    Sun Map Generation <sunmap_gen>
 
 * .. toctree::
-   :caption: Tutorials
+   :caption: Contribute to EOLabtools
    :maxdepth: 1
 
-   Tutorial <tutorial>
-   Contribute to EOLabtools <contributing>
+   How to contribute <contributing>
 
 * .. toctree::
    :caption: References
