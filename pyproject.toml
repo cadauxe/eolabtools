@@ -8,6 +8,8 @@ description = "Library to compute shift in nighttime imagery based on OSM vector
 requires-python = ">=3.7"
 keywords = ["gis", "remote sensing", "nighttime imagery"]
 dependencies = [
+    "numpy",
+    "gdal==3.11.0",
     "pyogrio",
     "shapely>=2",
     "geopandas",
