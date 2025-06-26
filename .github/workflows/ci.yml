@@ -42,30 +42,65 @@ jobs:
       with:
         python-version: '3.10'
         auto-activate-base: false
-    - name: Create test env
+
+    - name: Create test env DetectCult
       shell: bash -l {0}
       run: |
-        conda create -n eolab_23_06 python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
-        conda activate eolab_23_06
-        conda env update -f src/eolabtools/detection_orientation_culture/environment.yml
-#        conda env update -f src/eolabtools/night_osm_registration/requirements.yml
-#        pip install georastertools --no-binary rasterio
-        pip install --force-reinstall -r src/eolabtools/sun_map_generation/requirements.txt --no-cache-dir
-        pip install . 
+        conda create -n orcult_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+        conda activate orcult_env
+        pip install ".[DetecOrCult]"
         pip install pylint mccabe
-#        Alternative
-#        conda create -n eolab_else python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
-#        conda activate eolab_else
-#        pip install georastertools --no-binary rasterio
-#        pip install pyyaml ephem scikit-learn timezonefinder scikit-image opencv-contrib-python pyrosm rasterstats
-#        pip install .
-#        pip install gdal==3.5.0 --no-cache-dir --force-reinstall
-    - name: Tests
+    - name: Tests DetectCult
       shell: bash -l {0}
       run: |
-        conda activate eolab_23_06
-        pytest tests --cov-fail-under=65
-        pytest tests --cov=src/eolabtools --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
+        conda activate orcult_env
+        pytest tests/test_orcult.py --cov-fail-under=65
+        pytest tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          .ci-reports/
+          cov_html/
+          pytest-results.xml
+
+    - name: Create test env SunMap
+      shell: bash -l {0}
+      run: |
+        conda create -n sunmap_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+        conda activate sunmap_env
+        pip install georastertools --no-binary rasterio
+        pip install ".[SunMapGen]" --force-reinstall --no-cache-dir
+        pip install pylint mccabe
+    - name: Tests SunMap
+      shell: bash -l {0}
+      run: |
+        conda activate sunmap_env
+        pytest tests/test_sunmap.py --cov-fail-under=65
+        pytest tests/test_sunmap.py --cov=src/eolabtools/sun_map_generation --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          .ci-reports/
+          cov_html/
+          pytest-results.xml
+
+    - name: Create test env NightOsm
+      shell: bash -l {0}
+      run: |
+        conda create -n nightosm_env python=3.11 libgdal=3.11.0 markupsafe -c conda-forge 
+        conda activate nightosm_env
+        pip install ".[NightOsmReg]"
+        pip install pylint mccabe
+    - name: Tests NightOsm
+      shell: bash -l {0}
+      run: |
+        conda activate nightosm_env
+        pytest tests/test_nightosm.py --cov-fail-under=65
+        pytest tests/test_nightosm.py --cov=src/eolabtools/night_osm_registration --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
     - name: Upload Coverage Report
       uses: actions/upload-artifact@v4
       with:

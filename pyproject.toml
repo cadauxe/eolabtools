@@ -7,7 +7,11 @@ name = "eolabtools"
 description = "Collection of tools for data"
 version = "0.0.0"
 requires-python = ">=3.8.13"
-dependencies = []
+dependencies = [
+    "pytest",
+    "pytest-cov",
+    "pyyaml"
+]
 readme = "README.md"
 license = { file = "LICENSE.txt" }
 classifiers = [
@@ -16,6 +20,37 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Processing",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+NightOsmReg = [
+    "numpy",
+    "gdal==3.11.0",
+    "pyogrio",
+    "shapely>=2",
+    "geopandas",
+    "pyrosm",
+    "rasterio",
+    "scikit-image",
+    "opencv-python",
+    "matplotlib"
+]
+SunMapGen = [
+    "gdal==3.5.0",
+    "numpy==1.24.4",
+    "timezonefinder",
+    "ephem"
+]
+DetecOrCult = [
+    "geopandas==0.12.2",
+    "fiona==1.8.21",
+    "rasterio",
+    "gdal==3.5.0",
+    "scikit-learn",
+    "opencv-contrib-python",
+    "rasterstats",
+    "numpy==1.26.4",
+    "pandas==1.5.3"
 ]
 
 [project.urls]
