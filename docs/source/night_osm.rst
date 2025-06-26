@@ -4,6 +4,13 @@
 Night OSM Registration
 ======================
 
+Night visible data registration based on OSM reference. (city context)
+
+Single tool installation procedure
+===============================
+
+Avec ou sans l'OTB ?
+
 se mettre en python 3.9
 conda install otb=8.0.0 -c iota2
 pip install "shapely>=2" markupsafe geopandas pyrosm scikit-image opencv-python matplotlib pyyaml
@@ -12,7 +19,6 @@ pip install "shapely>=2" markupsafe geopandas pyrosm scikit-image opencv-python 
 #Change installation procedure
 #TO DO
 
-Night visible data registration based on OSM reference (city context)
 
 Principle
 =========
@@ -31,12 +37,6 @@ Main steps of the algorithm :
 5. Application of the grid on the radiance image.
 
 
-Dependencies
-============
-
-Cf. requirements.txt
-
-otbApplication
 
 Command
 =======

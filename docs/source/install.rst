@@ -4,5 +4,6 @@
 Installation
 ======================
 
-#Verify installation procedure
-#TO DO
+Each tools can be use in separate virtual environnements.
+The single tool installation is provided in each tool page.
+
