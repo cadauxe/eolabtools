@@ -39,8 +39,8 @@ jobs:
     - name: Create test env
       shell: bash -l {0}
       run: |
-        conda create -n nightosm_cv python=3.11 gdal=3.11.0 -c conda-forge
-        conda activate nightosm_cv
+        conda create -n test_env python=3.11 gdal=3.11.0 -c conda-forge
+        conda activate test_env
         pip install "MarkupSafe>=2.0"
         pip install .
         pip install pylint mccabe
