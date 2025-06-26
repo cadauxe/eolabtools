@@ -48,6 +48,7 @@ if __name__ == "__main__":
                   "pyogrio",
                   "shapely>=2",
                   "geopandas",
+                  "MarkupSafe>=2.0",
                   "pyrosm",
                   "scikit-image",
                   "opencv-python",
