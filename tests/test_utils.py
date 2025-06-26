@@ -1,6 +1,5 @@
 from conftest import EOLabtoolsTestsPath
 import geopandas as gpd
-import rasterio
 import numpy as np
 import os
 import yaml
