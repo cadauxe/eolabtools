@@ -617,44 +617,7 @@ def seconds_to_hhmmss(seconds):
     seconds %= 60
     return '{:02d}:{:02d}:{:02d}.{:02d}'.format(int(hours), int(minutes), int(seconds), int((seconds - int(seconds)) * 100))
 
-
-# Press the green button in the gutter to run the script.
-def main():
-    parser = argparse.ArgumentParser(description="Generate a Sun Map based day, time and place")
-    parser.add_argument("-dsm", "--digital_surface_model", type=str,
-                        help="Path to the Digital Surface Model (DSM) or path to"
-                             " .lst files that contains one input file (.tif) per line",
-                        required=True)
-    parser.add_argument("-tiles", "--tiles_file", type=str,
-                        help="Path to the Digital Surface Model (DSM) shapes (.shp)", required=True)
-    parser.add_argument("-d", "--date", nargs='+', help="Date or date range (YYYT-MM-DD format) and step (in days). "
-                                                        "Default step value set to 1.", required=True)
-    parser.add_argument("-t", "--time", nargs='+', help="Time or time range (HH:MM format) and step (in minutes). "
-                                                        "Default step value set to 30 min", required=True)
-    parser.add_argument("-n_occ", "--occ_changes", type=int, default=4, help="Number of sun/shadow changes limit a day")
-    parser.add_argument("-nbc", "--nb_cores", type=int, default=1, help="Number of cores to use")
-    parser.add_argument('-o', '--output_dir', default=os.getcwd(), help='Output directory path')
-    parser.add_argument('-st', '--save_temp', action='store_true', help='Store processing times in CSV file')
-    parser.add_argument('-sm', '--save_masks', action='store_true', help='Store hourly shadow masks')
-
-    args = parser.parse_args()
-
-    dsm_file = args.digital_surface_model
-    dsm_tiles = args.tiles_file
-    output_dir = args.output_dir
-    nb_cores = args.nb_cores
-    nb_changes_a_day = args.occ_changes
-
-    # Time management
-    manager = Manager()
-    time_azimuth_elevation_computation = manager.Value("time_azimuth_elevation_computation", 0.)
-    time_shadow_mask_execution = manager.Value("time_shadow_mask_execution", 0.)
-    time_daily_sun_percentage = manager.Value("time_daily_sun_percentage", 0.)
-    time_polygonize_coded_raster = manager.Value("time_polygonize_coded_raster", 0.)
-    time_dissolve_geometries = manager.Value("time_dissolve_geometries", 0.)
-    start_main = time.time()
-    _logger.info(f"start_main {start_main}")
-
+def check_date(args, parser):
     # Check if date argument is correct
     if args.date:
         date_input = args.date
@@ -677,7 +640,10 @@ def main():
             _logger.info("Date format incorrect")
             parser.print_help()
             sys.exit(1)
+    return end_date, start_date, step_date
 
+
+def check_time(args, parser):
     # Check if time argument is correct
     if args.time:
         time_input = args.time
@@ -700,74 +666,12 @@ def main():
             _logger.info("Time format incorrect")
             parser.print_help()
             sys.exit(1)
+    return end_time, start_time, step_time
 
-    # check dsm argument
-    if dsm_file[-3:] == 'lst':
-        # Open file
-        paths = []
-        with open(dsm_file, "r") as file:
-            for line in file:
-                # delete /n
-                line = line.strip()
-                # add to list
-                paths.append(line)
 
-    elif dsm_file[-3:] == 'tif':
-        paths = [dsm_file]
-
-    else:
-        _logger.info("DSM file has incorrect extension")
-        parser.print_help()
-        sys.exit(1)
-
-    # Find automatically the timezone of file's location
-    area = find_timezone(paths[0])
-
-    with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
-
-        all_files_created = list(executor.map(partial(generate_sun_map,
-                                                      dsm_tiles=dsm_tiles,
-                                                      start_date=start_date,
-                                                      end_date=end_date,
-                                                      step_date=step_date,
-                                                      start_time=start_time,
-                                                      end_time=end_time,
-                                                      step_time=step_time,
-                                                      output_dir=output_dir,
-                                                      area=area,
-                                                      time_az_el=time_azimuth_elevation_computation,
-                                                      time_mask_exec=time_shadow_mask_execution),
-                                              paths))
-
-    if True:
-        _logger.info("Creating daily shadow maps")
-        path_list_by_days = list(itertools.chain.from_iterable(all_files_created))
-        with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
-            daily_sun_map_paths = list(executor.map(partial(generate_daily_shadow_maps,
-                                                            time_process=time_daily_sun_percentage),
-                                                    path_list_by_days))
-        # generate_daily_shadow_maps(all_files_created, True, output_dir)
-
-    # create vector with sun times (first tile and first day for now)
-    if True:
-        _logger.info("Creating sun time vector")
-        with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
-            sun_time_vector_paths = list(executor.map(partial(generate_sun_time_vector,
-                                                              area = area,
-                                                              occ_changes=nb_changes_a_day,
-                                                              time_polygonize=time_polygonize_coded_raster,
-                                                              time_dissolve=time_dissolve_geometries),
-                                                      all_files_created))
-    _logger.info("Done.")
-
-    # remove mask files
-    if not args.save_masks:
-        files_to_remove = glob.glob(output_dir + '*hillshade*.tif')
-        for f in files_to_remove:
-            os.remove(f)
-
+def save_temp_run(args, output_dir, start_main, time_azimuth_elevation_computation, time_daily_sun_percentage,
+                  time_dissolve_geometries, time_polygonize_coded_raster, time_shadow_mask_execution):
     # saving processing times to csv file
-
     if args.save_temp:
         _logger.info("Saving processing times to csv file")
 
@@ -792,3 +696,111 @@ def main():
             csv_writer = csv.writer(f)
             csv_writer.writerow(header)
             csv_writer.writerow(times)
+
+
+def run(args, parser):
+    dsm_file = args.digital_surface_model
+    dsm_tiles = args.tiles_file
+    output_dir = args.output_dir
+    nb_cores = args.nb_cores
+    nb_changes_a_day = args.occ_changes
+    # Time management
+    manager = Manager()
+    time_azimuth_elevation_computation = manager.Value("time_azimuth_elevation_computation", 0.)
+    time_shadow_mask_execution = manager.Value("time_shadow_mask_execution", 0.)
+    time_daily_sun_percentage = manager.Value("time_daily_sun_percentage", 0.)
+    time_polygonize_coded_raster = manager.Value("time_polygonize_coded_raster", 0.)
+    time_dissolve_geometries = manager.Value("time_dissolve_geometries", 0.)
+    start_main = time.time()
+    _logger.info(f"start_main {start_main}")
+
+    end_date, start_date, step_date = check_date(args, parser)
+
+    end_time, start_time, step_time = check_time(args, parser)
+    # check dsm argument
+    if dsm_file[-3:] == 'lst':
+        # Open file
+        paths = []
+        with open(dsm_file, "r") as file:
+            for line in file:
+                # delete /n
+                line = line.strip()
+                # add to list
+                paths.append(line)
+
+    elif dsm_file[-3:] == 'tif':
+        paths = [dsm_file]
+
+    else:
+        _logger.info("DSM file has incorrect extension")
+        parser.print_help()
+        sys.exit(1)
+    # Find automatically the timezone of file's location
+    area = find_timezone(paths[0])
+    with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
+
+        all_files_created = list(executor.map(partial(generate_sun_map,
+                                                      dsm_tiles=dsm_tiles,
+                                                      start_date=start_date,
+                                                      end_date=end_date,
+                                                      step_date=step_date,
+                                                      start_time=start_time,
+                                                      end_time=end_time,
+                                                      step_time=step_time,
+                                                      output_dir=output_dir,
+                                                      area=area,
+                                                      time_az_el=time_azimuth_elevation_computation,
+                                                      time_mask_exec=time_shadow_mask_execution),
+                                              paths))
+    if True:
+        _logger.info("Creating daily shadow maps")
+        path_list_by_days = list(itertools.chain.from_iterable(all_files_created))
+        with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
+            daily_sun_map_paths = list(executor.map(partial(generate_daily_shadow_maps,
+                                                            time_process=time_daily_sun_percentage),
+                                                    path_list_by_days))
+        # generate_daily_shadow_maps(all_files_created, True, output_dir)
+    # create vector with sun times (first tile and first day for now)
+    if True:
+        _logger.info("Creating sun time vector")
+        with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
+            sun_time_vector_paths = list(executor.map(partial(generate_sun_time_vector,
+                                                              area=area,
+                                                              occ_changes=nb_changes_a_day,
+                                                              time_polygonize=time_polygonize_coded_raster,
+                                                              time_dissolve=time_dissolve_geometries),
+                                                      all_files_created))
+    _logger.info("Done.")
+    # remove mask files
+    if not args.save_masks:
+        files_to_remove = glob.glob(output_dir + '*hillshade*.tif')
+        for f in files_to_remove:
+            os.remove(f)
+
+    save_temp_run(args, output_dir, start_main, time_azimuth_elevation_computation, time_daily_sun_percentage,
+                  time_dissolve_geometries, time_polygonize_coded_raster, time_shadow_mask_execution)
+
+
+
+# Press the green button in the gutter to run the script.
+def main():
+    parser = argparse.ArgumentParser(description="Generate a Sun Map based day, time and place")
+    parser.add_argument("-dsm", "--digital_surface_model", type=str,
+                        help="Path to the Digital Surface Model (DSM) or path to"
+                             " .lst files that contains one input file (.tif) per line",
+                        required=True)
+    parser.add_argument("-tiles", "--tiles_file", type=str,
+                        help="Path to the Digital Surface Model (DSM) shapes (.shp)", required=True)
+    parser.add_argument("-d", "--date", nargs='+', help="Date or date range (YYYT-MM-DD format) and step (in days). "
+                                                        "Default step value set to 1.", required=True)
+    parser.add_argument("-t", "--time", nargs='+', help="Time or time range (HH:MM format) and step (in minutes). "
+                                                        "Default step value set to 30 min", required=True)
+    parser.add_argument("-n_occ", "--occ_changes", type=int, default=4, help="Number of sun/shadow changes limit a day")
+    parser.add_argument("-nbc", "--nb_cores", type=int, default=1, help="Number of cores to use")
+    parser.add_argument('-o', '--output_dir', default=os.getcwd(), help='Output directory path')
+    parser.add_argument('-st', '--save_temp', action='store_true', help='Store processing times in CSV file')
+    parser.add_argument('-sm', '--save_masks', action='store_true', help='Store hourly shadow masks')
+
+    args = parser.parse_args()
+
+    run(args, parser)
