@@ -619,7 +619,7 @@ def seconds_to_hhmmss(seconds):
 
 
 # Press the green button in the gutter to run the script.
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description="Generate a Sun Map based day, time and place")
     parser.add_argument("-dsm", "--digital_surface_model", type=str,
                         help="Path to the Digital Surface Model (DSM) or path to"

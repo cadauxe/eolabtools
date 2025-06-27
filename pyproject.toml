@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "eolabtools"
 description = "Collection of tools for data"
-version = "0.0.0"
+version = "0.0.1"
 requires-python = ">=3.8.13"
 dependencies = []
 readme = "README.md"
@@ -66,3 +66,7 @@ repository = "https://github.com/CNES/eolabtools"
 [project.scripts]
 night_osm_image_registration = "eolabtools.night_osm_registration.register_image:main"
 night_osm_vector_registration = "eolabtools.night_osm_registration.register_vector:main"
+
+detection_orientation_culture = "eolabtools.detection_orientation_culture.orientation_detection:main"
+
+sun_map_generation = "eolabtools.sun_map_generation.SunMapGenerator:main"

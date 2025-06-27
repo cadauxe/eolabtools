@@ -24,7 +24,7 @@ from shapely.geometry import (LineString, MultiLineString, Point, Polygon, box,
                               shape)
 from sklearn.cluster import MeanShift, estimate_bandwidth
 
-from utils import (compute_angles, sec_to_hms,
+from .utils import (compute_angles, sec_to_hms,
                    filter_segments, fld_segment_detect,
                    get_mean_slope_aspect, normalize_img, save_centroids_orientations,
                    split_img_borders, split_img_dataset, split_windows, compute_centroids, set_str_to_all,
@@ -37,6 +37,8 @@ import sys
 
 ssl._create_default_https_context = ssl._create_unverified_context
 warnings.filterwarnings("ignore")
+
+_logger = logging.getLogger(__name__)
 
 
 def get_splitting_lines(
@@ -1350,7 +1352,43 @@ def orientation_compute_process(args, crs, img_dataset, increment, list_rpg_patc
     return list_gdf, out_centroids, out_orient
 
 
-def main(args):
+def main():
+    parser = argparse.ArgumentParser(
+        description='Detection of crop orientation on BDORTHO and PHR images')
+    parser.add_argument('-img', '--img', metavar='[IMAGE]', help='Image path or directory containing the images',
+                        required=True)
+    parser.add_argument('-rpg', '--rpg', metavar='[RPG]', help='Input RPG shapefile', required=True)
+    parser.add_argument('-o', '--output_dir', default=None, help='Output directory where to store results')
+    parser.add_argument('-slope', '--slope', help="Path to the slope file", required=True)
+    parser.add_argument('-aspect', '--aspect', help="Path to the aspect file", required=True)
+    parser.add_argument('-nb_cores', '--nb_cores', type=int, default=5)
+    parser.add_argument('-type', '--type', metavar='[TYPE]', help='file extension of the images (tif or jp2)',
+                        default="tif")
+    parser.add_argument('-normalize', '--normalize', help="Normalize the image before line detection",
+                        action="store_true")
+    parser.add_argument('-save_fld', '--save_fld', help="save additional files", action="store_true")
+    parser.add_argument('-verbose', '--verbose', help="print messages along process", action="store_true")
+    parser.add_argument('-patch_size', '--patch_size', help="Size of image patches", type=int, default=10000)
+    parser.add_argument('-area_min', '--area_min', help="Minimum area of plot to handle. Leave to default.", type=float,
+                        default=20000.)
+    parser.add_argument('-min_nline', '--min_nb_line_per_parcel',
+                        help="minimum valid number of segments inside a parcel", type=int, default=10)
+    parser.add_argument('-min_len_line', '--min_len_line', help="minimum length (meters) for a valid segment", type=int,
+                        default=6)
+
+    parser.print_help()
+    args = parser.parse_args()
+
+    # logging config
+    logformat = "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
+    logging.basicConfig(
+        level=logging.INFO if args.verbose else logging.WARNING,  # Only show INFO if verbose=True
+        stream=sys.stdout,
+        format=logformat,
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    logging.getLogger("fiona").setLevel(logging.ERROR)
+
     # Log params
     args_dict = vars(args)
     _logger.info("==================================== PARAMETERS ====================================")
@@ -1463,41 +1501,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='Detection of crop orientation on BDORTHO and PHR images')
-    parser.add_argument('-img', '--img', metavar='[IMAGE]', help='Image path or directory containing the images',
-                        required=True)
-    parser.add_argument('-rpg', '--rpg', metavar='[RPG]', help='Input RPG shapefile', required=True)
-    parser.add_argument('-o', '--output_dir', default=None, help='Output directory where to store results')
-    parser.add_argument('-slope', '--slope', help="Path to the slope file", required=True)
-    parser.add_argument('-aspect', '--aspect', help="Path to the aspect file", required=True)
-    parser.add_argument('-nb_cores', '--nb_cores', type=int, default=5)
-    parser.add_argument('-type', '--type', metavar='[TYPE]', help='file extension of the images (tif or jp2)',
-                        default="tif")
-    parser.add_argument('-normalize', '--normalize', help="Normalize the image before line detection",
-                        action="store_true")
-    parser.add_argument('-save_fld', '--save_fld', help="save additional files", action="store_true")
-    parser.add_argument('-verbose', '--verbose', help="print messages along process", action="store_true")
-    parser.add_argument('-patch_size', '--patch_size', help="Size of image patches", type=int, default=10000)
-    parser.add_argument('-area_min', '--area_min', help="Minimum area of plot to handle. Leave to default.", type=float,
-                        default=20000.)
-    parser.add_argument('-min_nline', '--min_nb_line_per_parcel',
-                        help="minimum valid number of segments inside a parcel", type=int, default=10)
-    parser.add_argument('-min_len_line', '--min_len_line', help="minimum length (meters) for a valid segment", type=int,
-                        default=6)
-
-    parser.print_help()
-    args = parser.parse_args()
-
-    # logging config
-    logformat = "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
-    logging.basicConfig(
-        level=logging.INFO if args.verbose else logging.WARNING,  # Only show INFO if verbose=True
-        stream=sys.stdout,
-        format=logformat,
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    _logger = logging.getLogger(__name__)
-    logging.getLogger("fiona").setLevel(logging.ERROR)
-
-    main(args)
+    sys.exit(main())

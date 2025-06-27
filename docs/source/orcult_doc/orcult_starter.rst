@@ -61,15 +61,15 @@ To obtain the crop orientation in a shapefile format, please use the following c
 
 .. code-block:: python
 
-    python orientation_detection.py --img path/to/image_file_or_directory
-                                    --type extension_file_type
-                                    --rpg path/to/rpg_file.shp \
-                                    --out_shp path/to/output_file.shp \
-                                    --out_csv path/to/output_file.csv \
-                                    --nb_cores 12 \
-                                    --patch_size 10000 \
-                                    --slope path/to/slope_file.tif \
-                                    --aspect path/to/aspect_file.tif
+    detection_orientation_culture --img path/to/image_file_or_directory
+                                  --type extension_file_type
+                                  --rpg path/to/rpg_file.shp \
+                                  --out_shp path/to/output_file.shp \
+                                  --out_csv path/to/output_file.csv \
+                                  --nb_cores 12 \
+                                  --patch_size 10000 \
+                                  --slope path/to/slope_file.tif \
+                                  --aspect path/to/aspect_file.tif
 
 
 - The code relies on the fld algorithm to detect the segments in the images from which the orientations of each of the input RPG

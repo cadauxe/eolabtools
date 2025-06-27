@@ -15,8 +15,7 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     create_outdir(f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst/")
 
     command = [
-        f"python",
-        f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
+        f"sun_map_generation",
         f"--digital_surface_model", f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst",
         f"--tiles_file", f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/1tile.shp",
         f"--date", f"2024-08-03", f"2024-08-04", f"1",
@@ -45,8 +44,7 @@ def test_sunmap_1tile_tif(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     create_outdir(f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_tif/")
 
     command = [
-        f"python",
-        f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
+        f"sun_map_generation",
         f"--digital_surface_model", f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/75-2021-0659-6861-LA93-0M50.tif",
         f"--tiles_file", f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/1tile.shp",
         f"--date", f"2024-08-03", f"2024-08-04", f"1",
@@ -79,8 +77,7 @@ def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     create_outdir(f"{eolabtools_paths.sunmap_outdir}/test_2tiles_low_res/")
 
     command = [
-        f"python",
-        f"src/eolabtools/sun_map_generation/SunMapGenerator.py",
+        f"sun_map_generation",
         f"--digital_surface_model", f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/listing_2tiles.lst",
         f"--tiles_file", f"{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/2tiles.shp",
         f"--date", f"2024-08-31", f"2024-08-31", f"1",

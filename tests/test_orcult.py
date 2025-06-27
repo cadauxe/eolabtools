@@ -16,8 +16,7 @@ def test_plot_orientation_bd_ortho1(eolabtools_paths: EOLabtoolsTestsPath) -> No
         os.makedirs(f"{eolabtools_paths.plotor_outdir}/2023_ortho1")
 
     command = [
-        f"python",
-        f"src/eolabtools/detection_orientation_culture/detection_orientation_culture/orientation_detection.py",
+        f"detection_orientation_culture",
         f"--img", f"{eolabtools_paths.plotor_datadir}/LeHavre_BD_ortho1.jp2",
         f"--type", f"jp2",
         f"--rpg", f"{eolabtools_paths.plotor_datadir}/RPG/RPG_LeHavre_2023_ortho1.shp",
