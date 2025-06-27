@@ -23,7 +23,7 @@ jobs:
       - name: Run Pylint
         shell: bash -l {0}
         run: |
-          pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools/detection_orientation_culture/
+          pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools
       - name: Run McCabe Complexity Check
         shell: bash -l {0}
         run: |

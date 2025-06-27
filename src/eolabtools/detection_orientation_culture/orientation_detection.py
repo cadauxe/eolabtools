@@ -1351,6 +1351,40 @@ def orientation_compute_process(args, crs, img_dataset, increment, list_rpg_patc
     del centroids
     return list_gdf, out_centroids, out_orient
 
+def reading_input(args):
+    start_main = time.process_time()
+    start = datetime.now()
+    # Open rpg shapefile
+    _logger.info("Reading RPG shapefile...")
+    RPG = gpd.read_file(args.rpg)
+    _logger.info("done in {:.3} seconds".format(time.process_time() - start_main))
+    crs_rpg = RPG.crs
+    _logger.info(f"CRS RPG : {crs_rpg}")
+    crs = {"init": "epsg:2154"}
+    img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
+                         ) if os.path.isdir(args.img) else args.img
+    _logger.info(f"Image dataset size : {len(img_dataset)}")
+    manager = Manager()
+    time_split = manager.Value("time_split", 0.)
+    time_slope_aspect = manager.Value("time_slope_aspect", 0.)
+    time_fld = manager.Value("time_fld", 0.)
+    time_orientation_worker = manager.Value("time_orientation_worker", 0.)
+    time_calculate_orientation = manager.Value(
+        "time_calculate_orientation", 0.)
+    time_inter_mask_open = manager.Value("time_inter_mask_open", 0.)
+    parcel_ids_processed = manager.list()
+    increment = manager.Value('increment', 0)
+    len_RPG = len(RPG)
+    # Split RPG into patches
+    list_rpg_patches = get_rpg_patches(
+        img_dataset,
+        RPG,
+        time_split,
+        args.nb_cores,
+        patch_size=args.patch_size
+    )
+    return RPG, crs, img_dataset, increment, len_RPG, list_rpg_patches, parcel_ids_processed, start, start_main, time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker, time_slope_aspect, time_split
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -1395,43 +1429,10 @@ def main():
     for key in args_dict:
         _logger.info(f"{key}: {args_dict[key]}")
     _logger.info("================================== READING INPUTS ==================================")
-    start_main = time.process_time()
-    start = datetime.now()
 
-    # Open rpg shapefile
-    _logger.info("Reading RPG shapefile...")
-    RPG = gpd.read_file(args.rpg)
-    _logger.info("done in {:.3} seconds".format(time.process_time() - start_main))
-    crs_rpg = RPG.crs
-    _logger.info(f"CRS RPG : {crs_rpg}")
-    crs = {"init": "epsg:2154"}
+    RPG, crs, img_dataset, increment, len_RPG, list_rpg_patches, parcel_ids_processed, start, start_main, time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker, time_slope_aspect, time_split = reading_input(
+        args)
 
-    img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
-                         ) if os.path.isdir(args.img) else args.img
-    _logger.info(f"Image dataset size : {len(img_dataset)}")
-
-    manager = Manager()
-    time_split = manager.Value("time_split", 0.)
-    time_slope_aspect = manager.Value("time_slope_aspect", 0.)
-    time_fld = manager.Value("time_fld", 0.)
-    time_orientation_worker = manager.Value("time_orientation_worker", 0.)
-    time_calculate_orientation = manager.Value(
-        "time_calculate_orientation", 0.)
-    time_inter_mask_open = manager.Value("time_inter_mask_open", 0.)
-    parcel_ids_processed = manager.list()
-
-    increment = manager.Value('increment', 0)
-
-    len_RPG = len(RPG)
-
-    # Split RPG into patches
-    list_rpg_patches = get_rpg_patches(
-        img_dataset,
-        RPG,
-        time_split,
-        args.nb_cores,
-        patch_size=args.patch_size
-    )
     _logger.info(f"Patches list size : {len(list_rpg_patches)}")
 
     _logger.info("============================== ORIENTATION CALCULATION =============================")
