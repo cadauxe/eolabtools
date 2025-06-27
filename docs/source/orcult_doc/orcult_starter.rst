@@ -10,8 +10,14 @@ Crop orientation is a theme common to several projects. The idea is to calculate
 Single tool installation procedure
 ===============================
 
-#Change installation procedure
-#TO DO
+To install DetectionOrientationCulture, please launch the following commands :
+
+.. code-block:: console
+
+    conda create -n sunmap_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda activate sunmap_env
+    pip install georastertools --no-binary rasterio
+    pip install eolabtools[SunMapGen] --force-reinstall --no-cache-dir
 
 Generate the data used to compute orientations
 ===============================

@@ -37,15 +37,14 @@ Dire à l'utilisateur qu'il faut que son shapefile s'appelle TILE_NAME
 Installing environment
 ======================
 
-To install the required libraries, please launch the following commands :
+To install SunMapGeneration, please launch the following commands :
 
 .. code-block:: console
 
-    conda create -n carte_enso
-    conda activate carte_enso
-    conda install python=3.8.13 libgdal=3.5.0
-    pip install . (or pip install the wheel if built)
+    conda create -n sunmap_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda activate sunmap_env
     pip install georastertools --no-binary rasterio
+    pip install eolabtools[SunMapGen] --force-reinstall --no-cache-dir
 
 
 Content

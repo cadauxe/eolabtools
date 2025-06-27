@@ -5,5 +5,39 @@ Installation
 ======================
 
 Each tools can be use in separate virtual environnements.
-The single tool installation is provided in each tool page.
+The single tool installation is provided below and in each tool page.
 
+SunMapGeneration installation
+==============================
+
+To install SunMapGeneration, please launch the following commands :
+
+.. code-block:: console
+
+    conda create -n sunmap_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda activate sunmap_env
+    pip install georastertools --no-binary rasterio
+    pip install eolabtools[SunMapGen] --force-reinstall --no-cache-dir
+
+
+NightOsmRegistration installation
+=================================
+
+To install NightOsmRegistration, please launch the following commands :
+
+.. code-block:: console
+
+    conda create -n orcult_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda activate orcult_env
+    pip install eolabtools[DetecOrCult]
+
+DetectionOrientationCulture installation
+=================================
+
+To install DetectionOrientationCulture, please launch the following commands :
+
+.. code-block:: console
+
+    conda create -n orcult_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda activate orcult_env
+    pip install eolabtools[DetecOrCult]
