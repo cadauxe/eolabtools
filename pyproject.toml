@@ -13,6 +13,7 @@ dependencies = [
     "pytest-cov",
 #    "georastertools",
     "gdal==3.5.0",
+    "numpy==1.24.4",
     "timezonefinder",
     "ephem",
     "pyyaml",
