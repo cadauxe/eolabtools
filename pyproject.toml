@@ -26,6 +26,7 @@ classifiers = [
 NightOsmReg = [
     "numpy",
     "gdal==3.11.0",
+    "fiona",
     "pyogrio",
     "shapely>=2",
     "geopandas",
