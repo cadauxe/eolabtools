@@ -29,8 +29,8 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
 
     try :
         result = subprocess.run(command, capture_output=True, text=True, check=True)
-    except :
-        print(result.stderr)
+    except subprocess.CalledProcessError as e:
+        print(e.stderr)
 
     os.remove(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst")
 
