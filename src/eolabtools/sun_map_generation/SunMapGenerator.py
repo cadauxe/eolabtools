@@ -34,20 +34,20 @@ ssl._create_default_https_context = ssl._create_unverified_context
 logformat = "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
 logging.basicConfig(level=logging.INFO, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S")
 
-def find_timezone(in_file) -> str :
+
+def find_timezone(in_file) -> str:
     """
     Find the timezone corresponding to the input image
     """
     # Extract longitude and latitude from input data
     _, latitude, longitude = get_resolution_and_geolocation(in_file)
-    print(get_resolution_and_geolocation(in_file))
 
     # object creation
     obj = TimezoneFinder()
     return obj.timezone_at(lng=longitude, lat=latitude)
 
-def get_list_of_days(start, end, step):
 
+def get_list_of_days(start, end, step):
     # transform inputs
     start_date = datetime.strptime(start, "%Y-%m-%d")
     end_date = datetime.strptime(end, "%Y-%m-%d")
@@ -64,7 +64,6 @@ def get_list_of_days(start, end, step):
 
 
 def get_list_of_times(start, end, step):
-
     # transform inputs
     start_time = datetime.strptime(start, "%H:%M")
     end_time = datetime.strptime(end, "%H:%M")
@@ -81,7 +80,6 @@ def get_list_of_times(start, end, step):
 
 
 def merge_dates_and_times(dates_list, times_list):
-
     return_list = []
     for date in dates_list:
         datetime_list = []
@@ -93,10 +91,9 @@ def merge_dates_and_times(dates_list, times_list):
     return return_list
 
 
-def to_utc_time(in_file, time):
-
+def to_utc_time(in_file, time, area):
     # Define the timezone for area
-    tz = pytz.timezone(find_timezone(in_file))
+    tz = pytz.timezone(area)
 
     # Create a datetime object in the Paris timezone
     dt = tz.localize(time)
@@ -107,8 +104,7 @@ def to_utc_time(in_file, time):
     return utc_dt
 
 
-def get_azimuth_and_elevation(in_file, datetimes, longitude, latitude):
-
+def get_azimuth_and_elevation(in_file, datetimes, longitude, latitude, area):
     # Create an object to represent the sun
     sun = ephem.Sun()
 
@@ -117,7 +113,7 @@ def get_azimuth_and_elevation(in_file, datetimes, longitude, latitude):
     _logger.info(f"Computing azimuth and elevation for day {datetimes[0].strftime('%Y/%m/%d')}")
     for date in datetimes:
         # transform to UTC
-        date = to_utc_time(in_file, date)
+        date = to_utc_time(in_file, date, area)
 
         # Set the date and time for which you want to calculate the azimuth and elevation
         date = ephem.Date(date.strftime('%Y/%m/%d %H:%M:%S'))
@@ -151,7 +147,6 @@ def get_azimuth_and_elevation(in_file, datetimes, longitude, latitude):
 
 
 def get_resolution_and_geolocation(file):
-
     # Open the TIFF file
     dataset = gdal.Open(file)
 
@@ -181,7 +176,6 @@ def get_resolution_and_geolocation(file):
 
 
 def compute_radius(inputfile, resolution, elevation):
-
     wmax = None
     wmin = None
     with rasterio.open(inputfile) as src:
@@ -197,22 +191,21 @@ def compute_radius(inputfile, resolution, elevation):
 
 
 def execute_command(dsm_file, elevation, azimuth, resolution, output_dir, wd_size=2048):
-
     # Define the command to execute
     radius = compute_radius(dsm_file, resolution, elevation)
     if radius > 500:
-            radius = 500
+        radius = 500
     while radius >= (wd_size / 5):
-            wd_size *= 2
+        wd_size *= 2
 
     _logger.info(f"window size {wd_size} and radius {radius}")
 
     if radius is None:
         command = f"rio georastertools hs {dsm_file} --elevation {elevation} --azimuth {azimuth} --resolution {resolution} " \
-              f"-o {output_dir} -ws {wd_size}"
+                  f"-o {output_dir} -ws {wd_size}"
     else:
         command = f"rio georastertools hs {dsm_file} --elevation {elevation} --azimuth {azimuth} --resolution {resolution} " \
-              f"-o {output_dir} -ws {wd_size} --radius {radius}"
+                  f"-o {output_dir} -ws {wd_size} --radius {radius}"
 
     _logger.info(command)
 
@@ -293,8 +286,7 @@ def get_neighbors(tiles, tile_name):
 
 
 def generate_sun_map(dsm_file, dsm_tiles, start_date, end_date, step_date, start_time, end_time, step_time, output_dir,
-                     time_az_el, time_mask_exec):
-
+                     area, time_az_el, time_mask_exec):
     # get resolution in meters of dsm file
     _logger.info("----------------------------------------------------------------------------------------------------")
     _logger.info(f"Treating file {dsm_file}")
@@ -303,7 +295,7 @@ def generate_sun_map(dsm_file, dsm_tiles, start_date, end_date, step_date, start
     resolution, latitude, longitude = get_resolution_and_geolocation(dsm_file)
     _logger.info(f"Resolution of GeoTIFF image is {resolution} meters")
     _logger.info(f"Center of tile coordinates are : Longitude = {longitude} and Latitude = {latitude}")
-    
+
     # get range of dates
     list_of_days = get_list_of_days(start_date, end_date, step_date)
 
@@ -315,7 +307,7 @@ def generate_sun_map(dsm_file, dsm_tiles, start_date, end_date, step_date, start
 
     # compute azimuth, elevation for each datetime
     start_az_el_time = time.time()
-    list_of_azimuths, list_of_elevations = zip(*(get_azimuth_and_elevation(dsm_file, dt, longitude, latitude)
+    list_of_azimuths, list_of_elevations = zip(*(get_azimuth_and_elevation(dsm_file, dt, longitude, latitude, area)
                                                  for dt in list_of_datetimes))
     end_az_el_time = time.time() - start_az_el_time
     time_az_el.set(time_az_el.value + end_az_el_time)
@@ -338,7 +330,6 @@ def generate_sun_map(dsm_file, dsm_tiles, start_date, end_date, step_date, start
             if e < 1.5:
                 _logger.info("It's totally dark at that time of the day")
                 mask_data, profile = create_dark_image(dsm_file)
-                print(mask_data.shape)
             else:
                 # execute merge command
                 merged_dsm_file = execute_merge_command(dsm_file, neighbors, output_dir)
@@ -433,9 +424,8 @@ def code_raster(stacked_array):
     return new_array, quadruplet_dict
 
 
-def generate_sun_time_vector(files, time_polygonize, time_dissolve, occ_changes=4):
-
-    files = files[0] # first day for now
+def generate_sun_time_vector(files, time_polygonize, time_dissolve, area, occ_changes=4):
+    files = files[0]  # first day for now
     prefix = files[0][:-9]
 
     with rasterio.open(files[0]) as src:
@@ -443,8 +433,7 @@ def generate_sun_time_vector(files, time_polygonize, time_dissolve, occ_changes=
         width = src.width
         profile = src.profile
 
-    timezone = find_timezone(files[0])
-    tz = pytz.timezone(timezone)
+    tz = pytz.timezone(area)
     times = [tz.localize(datetime.strptime(date_string[-17:-4], "%Y%m%d-%H%M")) for date_string in files]
     timestamps = [int(time.timestamp()) for time in times]
 
@@ -508,7 +497,8 @@ def generate_sun_time_vector(files, time_polygonize, time_dissolve, occ_changes=
 
     def safe_convert(x):
         if x > 0:
-            return pd.to_datetime(x, unit='s', utc=True).tz_convert(timezone).tz_localize(None).strftime("%Y-%m-%d %H:%M:%S")
+            return pd.to_datetime(x, unit='s', utc=True).tz_convert(area).tz_localize(None).strftime(
+                "%Y-%m-%d %H:%M:%S")
         elif x == -1:
             return pd.NaT
         else:
@@ -570,7 +560,6 @@ def raster_stack(changes_0_to_1, changes_1_to_0, files, height, occ_changes, tim
 
 
 def generate_daily_shadow_maps(files, time_process):
-
     prefix = files[0][:-9]
 
     # create a shadow map for each day
@@ -590,7 +579,7 @@ def generate_daily_shadow_maps(files, time_process):
         result += arr
 
     result = 1 - (result / float(n_masks))
-    result = np.round(result*100).astype(np.uint8)
+    result = np.round(result * 100).astype(np.uint8)
 
     # write the result to a new raster file
     out_file = prefix.replace("hillshade", "sun_map") + ".tif"
@@ -603,7 +592,7 @@ def generate_daily_shadow_maps(files, time_process):
     # Don't forget to close the raster datasets
     for raster in raster_datasets:
         raster.close()
-    
+
     end_sun_map_time = time.time() - start_sun_map_time
     time_process.set(time_process.value + end_sun_map_time)
 
@@ -615,7 +604,8 @@ def seconds_to_hhmmss(seconds):
     seconds %= 3600
     minutes = seconds // 60
     seconds %= 60
-    return '{:02d}:{:02d}:{:02d}.{:02d}'.format(int(hours), int(minutes), int(seconds), int((seconds - int(seconds)) * 100))
+    return '{:02d}:{:02d}:{:02d}.{:02d}'.format(int(hours), int(minutes), int(seconds),
+                                                int((seconds - int(seconds)) * 100))
 
 
 # Press the green button in the gutter to run the script.
@@ -720,6 +710,9 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(1)
 
+    # Find automatically the timezone of file's location
+    area = find_timezone(paths[0])
+
     with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
 
         all_files_created = list(executor.map(partial(generate_sun_map,
@@ -731,6 +724,7 @@ if __name__ == '__main__':
                                                       end_time=end_time,
                                                       step_time=step_time,
                                                       output_dir=output_dir,
+                                                      area=area,
                                                       time_az_el=time_azimuth_elevation_computation,
                                                       time_mask_exec=time_shadow_mask_execution),
                                               paths))
@@ -749,6 +743,7 @@ if __name__ == '__main__':
         _logger.info("Creating sun time vector")
         with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
             sun_time_vector_paths = list(executor.map(partial(generate_sun_time_vector,
+                                                              area=area,
                                                               occ_changes=nb_changes_a_day,
                                                               time_polygonize=time_polygonize_coded_raster,
                                                               time_dissolve=time_dissolve_geometries),
