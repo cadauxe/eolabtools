@@ -55,15 +55,6 @@ jobs:
       run: |
         conda activate orcult_env
         pytest tests/test_orcult.py --cov-fail-under=65
-        pytest tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture --cov-report=xml:.ci-reports/detectcult/coverage.xml --cov-report html:cov_html_detectcult --cov-report=term --junitxml=pytest-results-detectcult.xml
-    - name: Upload Coverage Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report
-        path: |
-          .ci-reports/detectcult/
-          cov_html_detectcult/
-          pytest-results-detectcult.xml
 
     - name: Create test env SunMap
       shell: bash -l {0}
@@ -78,15 +69,6 @@ jobs:
       run: |
         conda activate sunmap_env
         pytest tests/test_sunmap.py --cov-fail-under=65
-        pytest tests/test_sunmap.py --cov=src/eolabtools/sun_map_generation --cov-report=xml:.ci-reports/sunmap/coverage.xml --cov-report=html:cov_html_sunmap --cov-report=term --junitxml=pytest-results-sunmap.xml
-    - name: Upload Coverage Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report
-        path: |
-          .ci-reports/sunmap/
-          cov_html_sunmap/
-          pytest-results-sunmap.xml
 
     - name: Create test env NightOsm
       shell: bash -l {0}
@@ -100,12 +82,3 @@ jobs:
       run: |
         conda activate nightosm_env
         pytest tests/test_nightosm.py --cov-fail-under=65
-        pytest tests/test_nightosm.py --cov=src/eolabtools/night_osm_registration --cov-report=xml:.ci-reports/nightosm/coverage.xml --cov-report html:cov_html_nightosm --cov-report=term --junitxml=pytest-results-nightosm.xml
-    - name: Upload Coverage Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report
-        path: |
-          .ci-reports/nightosm/
-          cov_html_nightosm/
-          pytest-results-nightosm.xml
