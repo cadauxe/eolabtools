@@ -11,7 +11,7 @@ keywords = ["gis", "remote sensing", "nighttime imagery"]
 dependencies = [
     "pytest",
     "pytest-cov",
-    "georastertools",
+#    "georastertools",
     "gdal==3.5.0",
     "timezonefinder",
     "ephem",
