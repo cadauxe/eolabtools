@@ -1,0 +1,64 @@
+name: CI Workflow
+
+on:
+  pull_request:
+    branches:
+      - "main"
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+      - name: Create test env
+        shell: bash -l {0}
+        run: |
+          pip install pylint mccabe
+      - name: Run Pylint
+        shell: bash -l {0}
+        run: |
+          pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools/detection_orientation_culture/
+      - name: Run McCabe Complexity Check
+        shell: bash -l {0}
+        run: |
+          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/sun_map_generation
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        python-version: '3.10'
+        auto-activate-base: false
+    - name: Create test env
+      shell: bash -l {0}
+      run: |
+        conda create -n orcult_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+        conda activate orcult_env
+        pip install -e .
+    - name: test
+      shell: bash -l {0}
+      run: |
+        conda activate orcult_env
+        pytest -s tests/test_orcult.py --cov-fail-under=65
+        pytest -s tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture/detection_orientation_culture --cov-report=xml:.ci-reports/coverage.xml --cov-report html:cov_html --cov-report=term --junitxml=pytest-results.xml
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          .ci-reports/
+          cov_html/
+          pytest-results.xml

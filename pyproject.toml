@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61", "wheel","jinja2>=3.1", "markupsafe>=2.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "detection_orientation_culture"
+version = "0.0.0"
+description = "Tool to compute crop orientations"
+requires-python = ">=3.7"
+keywords = ["gis", "remote sensing", "nighttime imagery"]
+dependencies = [
+    "pytest",
+    "pytest-cov",
+    "geopandas==0.12.2",
+    "fiona==1.8.21",
+    "rasterio",
+    "gdal==3.5.0",
+    "scikit-learn",
+    "opencv-contrib-python",
+    "rasterstats",
+    "pyyaml",
+    "numpy==1.26.4",
+    "pandas==1.5.3"
+]
+readme = "README.md"
+license = { file = "LICENSE.txt" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
