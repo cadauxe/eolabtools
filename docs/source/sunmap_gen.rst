@@ -14,11 +14,18 @@ Shadow masks can also be produced at each step.
 If the area of interest is important, the DSM should be divided into tiles beforehand (typically 1km*1km). The list of tiles is
 given as input. The tool will manage the shadow impact on adjacent tiles.
 
+# ADD ILLUSTRATION AND DESCRIPTION OF ILLUSTRATION
+
+.. figure:: _static/sunmap/sunmap_illustration.png
+   :alt:
+   :width: 50.0%
+   :align: center
+
 
 Steps of the algorithm
-===============================
+======================
 
-The tool uses the following method :
+Here are the main steps of the algorithm :
 
 - Compute elevation and azimuth angles of the Sun at the center of each tile for each time step in the time range and date range.
 
@@ -27,11 +34,6 @@ The tool uses the following method :
 - Generate the “sun map” at each date.
 
 - Generate the sun to shade transitions vector file.
-
-
-# ADD ILLUSTRATION AND DESCRIPTION OF ILLUSTRATION
-
-.. image:: _static/sunmap/sunmap_illustration.png
 
 
 Single tool installation procedure
@@ -63,24 +65,31 @@ To launch SunMapGeneration, please use the following command :
 
 .. code-block:: python
 
-    python SunMapGenerator.py --digital_surface_model /path_to_input_files/input_files.lst (or .tif)
-                              --date 2024-07-20 2024-07-30 3
-                              --time 10:00 14:00 30
-                              --nb_cores 32
-                              --occ_changes 4
-                              --output_dir /path_to_output_directory/output_directory/
-                              --save_temp
-                              --save_masks
+    sun_map_generation --digital_surface_model /path_to_input_files/input_files.lst (or .tif)
+                       --date 2024-07-20 2024-07-30 3
+                       --time 10:00 14:00 30
+                       --nb_cores 32
+                       --occ_changes 4
+                       --output_dir /path_to_output_directory/output_directory/
+                       --save_temp
+                       --save_masks
 
 
 - `digital_surface_model` : Path to the `.lst` file containing the names of the `.tif` files. When only one input file is necessary
 for the computation, the name `.tif` file can be given.
+
 - `date` : Date or date range (YYYY-MM-DD) and step (in days). The step value should be strictly positive and default value is 1 day.
+
 - `time` : Time or time range (HH:MM) and step (in minutes). The step value should be strictly positive and default value is 30 minutes.
+
 - `occ_changes` (should be >= 3) : Limit of sun/shade change of a pixel over one day. Default value 4.
+
 - `nb_cores` : To launch parallel processing. Number of processes to be entered.
+
 - `output_dir` : Path to the output directory.
+
 - `save_temp` : To be filled in to obtain the file describing the calculation time per step in the processing chain (`processing_time.csv`).
+
 - `save_masks` : To save shadow masks calculated at each time step
 
 Dire à l'utilisateur qu'il faut que son shapefile s'appelle TILE_NAME
