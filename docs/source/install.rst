@@ -27,9 +27,9 @@ To install NightOsmRegistration, please launch the following commands :
 
 .. code-block:: console
 
-    conda create -n orcult_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
-    conda activate orcult_env
-    pip install eolabtools[DetecOrCult]
+    conda create -n nightosm_env python=3.11 libgdal=3.11.0 markupsafe -c conda-forge
+    conda activate nightosm_env
+    pip install eolabtools[NightOsmReg]
 
 DetectionOrientationCulture installation
 =================================

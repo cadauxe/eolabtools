@@ -174,8 +174,6 @@ def get_resolution_and_geolocation(file):
     srs.ImportFromWkt(dataset.GetProjection())
     srs_latlong = srs.CloneGeogCS()
     ct = osr.CoordinateTransformation(srs, srs_latlong)
-    print(type(center_x))
-    print("/"*20)
     center_lat, center_lon, _ = ct.TransformPoint(center_x, center_y)
 
     return pixel_size_x, center_lat, center_lon
@@ -339,7 +337,6 @@ def generate_sun_map(dsm_file, dsm_tiles, start_date, end_date, step_date, start
             if e < 1.5:
                 _logger.info("It's totally dark at that time of the day")
                 mask_data, profile = create_dark_image(dsm_file)
-                print(mask_data.shape)
             else:
                 # execute merge command
                 merged_dsm_file = execute_merge_command(dsm_file, neighbors, output_dir)
