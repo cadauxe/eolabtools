@@ -11,7 +11,7 @@ Content
    :maxdepth: 1
    :caption: Installation
 
-   Installation procedure <install>
+   Installation procedure per tool <install>
 
 * .. toctree::
    :caption: Tools
@@ -33,7 +33,6 @@ Content
 
    License <license>
    Authors <authors>
-   Changelog <changelog>
 
 
 .. _toctree: http://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html
