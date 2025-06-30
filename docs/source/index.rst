@@ -11,7 +11,7 @@ Content
    :maxdepth: 1
    :caption: Installation
 
-   Installation procedure per tool <install>
+   Installation procedure <install>
 
 * .. toctree::
    :caption: Tools

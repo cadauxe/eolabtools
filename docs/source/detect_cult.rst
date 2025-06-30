@@ -7,7 +7,6 @@ Detection Orientation Culture
 DetectionOrientationCulture is a tool to compute crop orientations.
 
 .. toctree::
-   :caption: Tools
    :maxdepth: 1
    :titlesonly:
 
