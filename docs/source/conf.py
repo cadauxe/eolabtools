@@ -155,7 +155,7 @@ html_title = "EOLabtools Documentation"
 html_short_title = "EOLabtools Documentation"
 
 # Logo
-html_logo = "images/cnes.png" #Add the correct logo
+html_logo = "_static/cnes.png" #Add the correct logo
 
 # Favicon
 # html_favicon =
