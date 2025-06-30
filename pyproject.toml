@@ -51,7 +51,7 @@ DetecOrCult = [
     "geopandas==0.12.2",
     "fiona==1.8.21",
     "rasterio",
-    "gdal==3.5.0",
+    "gdal==3.11.0",
     "scikit-learn",
     "opencv-contrib-python",
     "rasterstats",

@@ -38,6 +38,6 @@ To install DetectionOrientationCulture, please launch the following commands :
 
 .. code-block:: console
 
-    conda create -n orcult_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda create -n orcult_env python=3.10 libgdal=3.11.0 -c conda-forge -c defaults -y
     conda activate orcult_env
     pip install eolabtools[DetecOrCult]
