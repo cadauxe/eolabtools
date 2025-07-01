@@ -92,20 +92,31 @@ Here are the main steps in the algorithm:
 
 For each plot:
 
-1. Retrieve the lines that correspond to the plot;
-2. If the **number of lines within a plot is below a given threshold** (currently set to 40), the orientation of the plot cannot be determined (too uncertain), and the next plot is processed. Otherwise, continue working with the current plot:
-3. A line = a segment between a point A = (xa, ya) and B = (xb, yb). For each line, calculate the vector AB = (xb - xa, yb - ya) and normalize it.
-4. Once all the coordinates of the normalized vectors for the plot are obtained, outliers need to be removed. The **IQR indicator = Q3 - Q1** is used, where Q1 is the first quartile and Q3 is the third quartile. The standard rule for identifying outliers is as follows: **values below Q1 - 1.5 * IQR or above Q3 + 1.5 * IQR are considered outliers**. If a normalized vector has an x or y coordinate identified as an outlier, it is removed from the list of vectors.
-5. The **magnitude of the remaining vectors is then checked**: if it is below a given threshold (set here to 8 for vineyards), the vector is discarded. This helps eliminate small lines along the edges of the plot that could distort the overall orientation.
-6. Once all the vectors for the plot are sorted, the median displacement is calculated, which gives us (xmed, ymed).
-7. The centroid of the plot is computed (xc, yc).
-8. The segment representing the visual orientation of the vineyard is centered on the centroid and connects the points (xc - xmed, yc - ymed) and (xc + xmed, yc + ymed). For better visibility (longer segments), a significant factor A is added: (xc - A * xmed, yc - A * ymed) and (xc + A * xmed, yc + A * ymed).
+1. **Segment detection :** Retrieve the lines that correspond to the plot;
+2. **Filtering:** If the number of lines within a plot is below a given threshold (currently set to 20), the orientation of the plot cannot be determined (too uncertain), and the next plot is processed. Otherwise, continue working with the current plot.
+3. **Check direction :** If all segments are all in same direction, go to step 4, else we do:
+    - **Segment clustering :** Segments that are in the same direction are assigned to the same cluster.
+    - **Plot subdivision :** Following the number of cluster defined in the previous step, the original plot is refined to smaller ones based on the cluster segement counts. And each of the new smaller plots follow individually the next steps
 
 These steps can be represented in the form of a diagram:
 
-CHANGE FIGURE TO MORE RECENT ONE
-#TODO
-<img src="imgs/shema_code_calcul_orientation.PNG"  width="900">
+.. figure:: /_static/orcult/overall_scheme.png
+   :alt:
+   :width: 70.0%
+   :align: center
+
+Then the orientation is computed in 5 steps :
+
+1. **Vector normalization :** A line = a segment between a point A = (xa, ya) and B = (xb, yb). For each line, calculate the vector AB = (xb - xa, yb - ya) and normalize it.
+2. **Outliers detection :** Once all the coordinates of the normalized vectors for the plot are obtained, outliers need to be removed. The IQR indicator = Q3 - Q1 is used, where Q1 is the first quartile and Q3 is the third quartile. The standard rule for identifying outliers is as follows: values below Q1 - 1.5 * IQR or above Q3 + 1.5 * IQR are considered outliers. If a normalized vector has an x or y coordinate identified as an outlier, it is removed from the list of vectors.
+3. **Magnitude check :** The magnitude of the remaining vectors is then checked: if it is below a given threshold (set here to 8 meters for vineyards), the vector is discarded. This helps eliminate small lines along the edges of the plot that could distort the overall orientation.
+4. **Centroid computation :** Once all the vectors for the plot are sorted, the median displacement is calculated, which gives us (xmed, ymed) and of the plot's centroid (xc, yc).
+5. **Line extension :** The segment representing the visual orientation of the vineyard is centered on the centroid and connects the points (xc - xmed, yc - ymed) and (xc + xmed, yc + ymed). For better visual outcome (longer segments recovering the whole plot), a significant factors A and A' is added: (xc - A * xmed, yc - A * ymed) and (xc + A' * xmed, yc + A' * ymed) in order to extend the orientation line to the plot's edges.
+
+.. figure:: /_static/orcult/orientation_computation.png
+   :alt:
+   :width: 70.0%
+   :align: center
 
 Additionally, for each calculated orientation, 4 quality indicator columns have been added for the computed orientation:
 

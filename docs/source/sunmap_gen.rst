@@ -66,8 +66,8 @@ To launch SunMapGeneration, please use the following command :
 .. code-block:: python
 
     sun_map_generation --digital_surface_model /path_to_input_files/input_files.lst (or .tif)
-                       --date 2024-07-20 2024-07-30 3
-                       --time 10:00 14:00 30
+                       --date YYYY-MM-DD YYYY-MM-DD 3
+                       --time HH:MM HH:MM 30
                        --nb_cores 32
                        --occ_changes 4
                        --output_dir /path_to_output_directory/output_directory/
@@ -75,22 +75,23 @@ To launch SunMapGeneration, please use the following command :
                        --save_masks
 
 
-- `digital_surface_model` : Path to the `.lst` file containing the names of the `.tif` files. When only one input file is necessary
-for the computation, the name `.tif` file can be given.
+- `--digital_surface_model` : Path to the `.lst` file containing the names of the `.tif` files. When only one input file is necessary for the computation, the name `.tif` file can be given.
 
-- `date` : Date or date range (YYYY-MM-DD) and step (in days). The step value should be strictly positive and default value is 1 day.
+- `--tiles_file` :
 
-- `time` : Time or time range (HH:MM) and step (in minutes). The step value should be strictly positive and default value is 30 minutes.
+- `--date` : Date or date range (YYYY-MM-DD) and step (in days). The step value should be strictly positive and default value is 1 day.
 
-- `occ_changes` (should be >= 3) : Limit of sun/shade change of a pixel over one day. Default value 4.
+- `--time` : Time or time range (HH:MM) and step (in minutes). The step value should be strictly positive and default value is 30 minutes.
 
-- `nb_cores` : To launch parallel processing. Number of processes to be entered.
+- `--occ_changes` (should be >= 3) : Limit of sun/shade change of a pixel over one day. Default value 4.
 
-- `output_dir` : Path to the output directory.
+- `--nb_cores` : To launch parallel processing. Number of processes to be entered.
 
-- `save_temp` : To be filled in to obtain the file describing the calculation time per step in the processing chain (`processing_time.csv`).
+- `--output_dir` : Path to the output directory.
 
-- `save_masks` : To save shadow masks calculated at each time step
+- `--save_temp` : To be filled in to obtain the file describing the calculation time per step in the processing chain (`processing_time.csv`).
+
+- `--save_masks` : To save shadow masks calculated at each time step
 
 Dire à l'utilisateur qu'il faut que son shapefile s'appelle TILE_NAME
 
@@ -98,7 +99,7 @@ Dire à l'utilisateur qu'il faut que son shapefile s'appelle TILE_NAME
 Output files
 ------------
 
-Files are stored in the directory given to `output_dir` :
+Files are stored in the directory given to `--output_dir` :
 
 - **Percentage of sun exposure raster** : `[tile_name]-sun_map-[YYYYMMDD].tif` The algorithm calculates them for each tile and each day entered by the user.
 
@@ -110,7 +111,7 @@ Files are stored in the directory given to `output_dir` :
 QGIS processing of output files
 -------------------------------
 
-It is possible do “requests” on the sun_times `.gpkg` file.
+It is possible do “requests” on the `.gpkg` file.
 
 For instance, to detect places that are shadowed between 12h00 and 14h00, you can view the file on QGIS and filter it with the
 following expression :
