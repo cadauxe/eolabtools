@@ -169,7 +169,7 @@ The tests perform comparisons between generated files and reference files.
 
 # Documentation generation
 
-To generate the documentation, run in an environment that contains `sphinx_rtd_theme` and`sphinxcontrib.bibtex` : 
+To generate the documentation, run in an environment that contains `sphinx_rtd_theme` and `sphinxcontrib.bibtex` : 
 
 ```bash
 sphinx-build -b html docs/source docs/build

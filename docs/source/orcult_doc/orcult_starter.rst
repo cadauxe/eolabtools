@@ -4,8 +4,14 @@
 Getting Started
 ================
 
-Crop orientation is a theme common to several projects. The idea is to calculate the crop orientation vector for each plot of interest.
+This tool can be used to derive the orientation of crops based on very high-resolution imagery and the polygons representing the perimeter of the agricultural plots.
 
+.. figure:: /_static/orcult/orcult_ex.png
+   :alt:
+   :width: 50.0%
+   :align: center
+
+   Example of computed crop orientations
 
 Single tool installation procedure
 ===============================
@@ -55,6 +61,8 @@ Code file contained in the directory
 Launching the computation of crop orientation with fld
 ===============================
 
+To be able to determine the crop orientation with respect to the terrain slope, a DTM preprocessing is necessary.
+
 To obtain the crop orientation in a shapefile format, please use the following command. More examples are provided in the script
 `detect_orientation_qsub.sh`. The method implemented uses the fld library from openCV.
 
@@ -86,6 +94,7 @@ supplied as input.
 Steps of the algorithm
 ===============================
 
+The algorithm is based on segment detection, and this step can be performed using two different methods: Pylsd or fld. The choice is left up to the user.
 Once the lines have been detected in the image (via pylsd or fld), various treatments are applied to the lines to calculate the overall crop orientation for each plot.
 
 Here are the main steps in the algorithm:
