@@ -46,15 +46,15 @@ Input files and configuration
 Main configuration file
 -----------------------
 
-A main configuration file is needed to run the tool. A template is available `here <https://github.com/cadauxe/eolabtools/blob/eolabtools_install/docs/source/nightosm_doc/ex_config.yml>`_.
+A main configuration file is needed to run the tool. A template is available `here <https://github.com/CNES/eolabtools/blob/main/docs/source/nightosm_doc/ex_config.yml>`_.
 
 
 OSM extraction configuration
 ----------------------------
 
 OSM layer extraction is handled by a configuration file.
-See two examples with `simple <https://github.com/cadauxe/eolabtools/blob/eolabtools_install/docs/source/nightosm_doc/ex_osm_config_simple.yml>`_
-and `subtracted <https://github.com/cadauxe/eolabtools/blob/eolabtools_install/docs/source/nightosm_doc/ex_osm_config_subtracted.yml>`_
+See two examples with `simple <https://github.com/CNES/eolabtools/blob/main/docs/source/nightosm_doc/ex_osm_config_simple.yml>`_
+and `subtracted <https://github.com/CNES/eolabtools/blob/main/docs/source/nightosm_doc/ex_osm_config_subtracted.yml>`_
 methods.
 
 **Simple :** Road vectors are simply rasterized (small memory footprint)
@@ -110,7 +110,7 @@ The following files are generated (XXXX being the reference image) :
 
     - ``XXXX_shifted.tif`` : Input ref or aux image shifted in x and y using displacement_grid.tif. Band 1 of the displacement grid corresponds to X shift, and band 2 to Y shift.
 
-    - ``decalage_en_colonne/ligne_position/valeur.csv`` : Value and position (center of subtile) of shifts before MS filtering.
+    - ``row/column_offset_position/value.csv`` : Value and position (center of subtile) of shifts before MS filtering.
 
     - ``shift_mask.tif`` : Mask with a shift arrow in the center of each subtile before filtering
 
@@ -123,7 +123,8 @@ Using night_osm_vector_registration
 Input file
 ----------
 
-*night_osm_vector_registration* takes as input a `.gpkg` vector file.
+The *night_osm_vector_registration* command allows to apply a displacement grid on vectors, for instance, on radiance peaks
+(only geometry of type "Point" is handled at the moment).
 
 Command line
 ------------
@@ -151,9 +152,9 @@ Arguments are the following :
 Output files
 ------------
 
-The following files are generated (XXXX being the reference image) :
+The following file is generated (XXXX being the basename) :
 
-- ``XXXX_radiance_peaks_shifted.gpkg`` : FILL
+- ``XXXX.gpkg`` : It contains the geometries of the input file shifted in X and Y according to the input displacement grid.
 
 Advices
 =======
