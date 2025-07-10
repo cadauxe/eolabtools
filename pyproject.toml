@@ -25,7 +25,7 @@ NightOsmReg = [
     "pyyaml",
     "numpy",
     "gdal==3.11.0",
-    "fiona",
+    "fiona==1.9.6",
     "pyogrio",
     "shapely>=2",
     "geopandas",
@@ -40,7 +40,7 @@ SunMapGen = [
     "pytest-cov",
     "pyyaml",
     "gdal==3.5.0",
-    "numpy==1.24.4",
+    "numpy<2",
     "timezonefinder",
     "ephem"
 ]
@@ -49,7 +49,7 @@ DetecOrCult = [
     "pytest-cov",
     "pyyaml",
     "geopandas==0.12.2",
-    "fiona==1.8.21",
+    "fiona==1.9.6",
     "rasterio",
     "gdal==3.11.0",
     "scikit-learn",

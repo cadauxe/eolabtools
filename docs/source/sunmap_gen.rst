@@ -44,7 +44,7 @@ To install SunMapGeneration, please launch the following commands :
 
 .. code-block:: console
 
-    conda create -n sunmap_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda create -n sunmap_env python=3.12 libgdal=3.5.0 -c conda-forge -c defaults -y
     conda activate sunmap_env
     pip install georastertools --no-binary rasterio
     pip install eolabtools[SunMapGen] --force-reinstall --no-cache-dir

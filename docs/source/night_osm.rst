@@ -13,7 +13,7 @@ To install NightOsmRegistration, please launch the following commands :
 
 .. code-block:: console
 
-    conda create -n nightosm_env python=3.11 libgdal=3.11.0 markupsafe -c conda-forge
+    conda create -n nightosm_env python=3.12 libgdal=3.11.0 markupsafe -c conda-forge
     conda activate nightosm_env
     pip install eolabtools[NightOsmReg]
 

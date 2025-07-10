@@ -14,7 +14,7 @@ To install SunMapGeneration, please launch the following commands :
 
 .. code-block:: console
 
-    conda create -n sunmap_env python=3.10 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda create -n sunmap_env python=3.12 libgdal=3.5.0 -c conda-forge -c defaults -y
     conda activate sunmap_env
     pip install georastertools --no-binary rasterio
     pip install eolabtools[SunMapGen] --force-reinstall --no-cache-dir
@@ -27,7 +27,7 @@ To install NightOsmRegistration, please launch the following commands :
 
 .. code-block:: console
 
-    conda create -n nightosm_env python=3.11 libgdal=3.11.0 markupsafe -c conda-forge
+    conda create -n nightosm_env python=3.12 libgdal=3.11.0 markupsafe -c conda-forge
     conda activate nightosm_env
     pip install eolabtools[NightOsmReg]
 
@@ -38,6 +38,6 @@ To install DetectionOrientationCulture, please launch the following commands :
 
 .. code-block:: console
 
-    conda create -n orcult_env python=3.10 libgdal=3.11.0 -c conda-forge -c defaults -y
+    conda create -n orcult_env python=3.12 libgdal=3.11.0 -c conda-forge -c defaults -y
     conda activate orcult_env
     pip install eolabtools[DetecOrCult]
