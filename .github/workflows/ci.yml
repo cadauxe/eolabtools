@@ -27,7 +27,7 @@ jobs:
       - name: Run McCabe Complexity Check
         shell: bash -l {0}
         run: |
-          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools/sun_map_generation
+          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools
 
   test:
     runs-on: ubuntu-latest
