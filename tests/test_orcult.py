@@ -1,6 +1,6 @@
 from conftest import EOLabtoolsTestsPath
 import subprocess
-from test_utils import compare_files
+from test_utils import compare_files, clear_outdir, create_outdir
 import pytest
 import os
 
@@ -12,8 +12,7 @@ def test_plot_orientation_bd_ortho1(eolabtools_paths: EOLabtoolsTestsPath) -> No
     """
     TO DO
     """
-    if not os.path.exists(f"{eolabtools_paths.plotor_outdir}/2023_ortho1"):
-        os.makedirs(f"{eolabtools_paths.plotor_outdir}/2023_ortho1")
+    create_outdir(f"{eolabtools_paths.plotor_outdir}/2023_ortho1")
 
     command = [
         f"detection_orientation_culture",
@@ -36,4 +35,5 @@ def test_plot_orientation_bd_ortho1(eolabtools_paths: EOLabtoolsTestsPath) -> No
     compare_files(reference_dir = f"{eolabtools_paths.plotor_ref}/2023_ortho1",
                   output_dir = f"{eolabtools_paths.plotor_outdir}/2023_ortho1",
                   tool = "DetecOrCult")
+    clear_outdir(f"{eolabtools_paths.plotor_outdir}/2023_ortho1")
 

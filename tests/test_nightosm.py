@@ -27,7 +27,7 @@ def test_nightosm_rasterize_radiance(eolabtools_paths: EOLabtoolsTestsPath) -> N
     compare_files(reference_dir = f"{eolabtools_paths.nightosm_ref}/TestRasterizeRadiance",
                   output_dir = f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_radiance",
                   tool = "NightOSM")
-    # clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_radiance")
+    clear_outdir(f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_radiance")
 
 
 @pytest.mark.ci

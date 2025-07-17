@@ -1385,6 +1385,7 @@ def reading_input(args):
     )
     return RPG, crs, img_dataset, increment, len_RPG, list_rpg_patches, parcel_ids_processed, start, start_main, time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker, time_slope_aspect, time_split
 
+
 def main():
     parser = argparse.ArgumentParser(
         description='Detection of crop orientation on BDORTHO and PHR images')
@@ -1411,9 +1412,6 @@ def main():
 
     parser.print_help()
     args = parser.parse_args()
-    main(args)
-
-def launch(args):
 
     # logging config
     logformat = "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
@@ -1430,7 +1428,6 @@ def launch(args):
     _logger.info("==================================== PARAMETERS ====================================")
     for key in args_dict:
         _logger.info(f"{key}: {args_dict[key]}")
-
     _logger.info("================================== READING INPUTS ==================================")
 
     RPG, crs, img_dataset, increment, len_RPG, list_rpg_patches, parcel_ids_processed, start, start_main, time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker, time_slope_aspect, time_split = reading_input(
