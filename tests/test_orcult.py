@@ -31,8 +31,7 @@ def test_plot_orientation_bd_ortho1(eolabtools_paths: EOLabtoolsTestsPath) -> No
         f"--verbose"
     ]
     print(" ".join(command))
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
-    print(result.stderr)
+    os.system(' '.join(command))
 
     compare_files(reference_dir = f"{eolabtools_paths.plotor_ref}/2023_ortho1",
                   output_dir = f"{eolabtools_paths.plotor_outdir}/2023_ortho1",

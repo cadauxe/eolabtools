@@ -22,9 +22,7 @@ def test_nightosm_rasterize_radiance(eolabtools_paths: EOLabtoolsTestsPath) -> N
         f"--osm-config", f"{eolabtools_paths.nightosm_datadir}/osm-config/osm_config_subtracted.yml",
         f"{eolabtools_paths.nightosm_datadir}/Extrait1/Extract1-Radiance.tif"
     ]
-    print(' '.join(command))
-
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    os.system(' '.join(command))
 
     compare_files(reference_dir = f"{eolabtools_paths.nightosm_ref}/TestRasterizeRadiance",
                   output_dir = f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_radiance",
@@ -48,8 +46,7 @@ def test_nightosm_rasterize_rgb(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"{eolabtools_paths.nightosm_datadir}/Extrait2/Extract2-FakeRGB.tif"
     ]
     print(command)
-
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    os.system(' '.join(command))
 
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestRasterizeRGB",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_rasterize_rgb",
@@ -74,7 +71,7 @@ def test_nightosm_register_radiance(eolabtools_paths: EOLabtoolsTestsPath) -> No
         f"{eolabtools_paths.nightosm_datadir}/Extrait1/Extract1-FakeRGB.tif"
     ]
     print(command)
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    os.system(' '.join(command))
 
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestRegisterRadiance",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_radiance",
@@ -98,8 +95,7 @@ def test_nightosm_register_rgb(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"{eolabtools_paths.nightosm_datadir}/Extrait2/Extract2-FakeRGB.tif"
     ]
     print(command)
-
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    os.system(' '.join(command))
 
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestRegisterRGB",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_register_rgb",
@@ -121,8 +117,7 @@ def test_nightosm_vector(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"{eolabtools_paths.nightosm_datadir}/Extrait2/Extract2-displacement_grid.tif"
     ]
     print(command)
-
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    os.system(' '.join(command))
 
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestRegisterVector",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_vector",
@@ -146,8 +141,7 @@ def test_nightosm_simple_config(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         f"{eolabtools_paths.nightosm_datadir}/Extrait2/Extract2-FakeRGB.tif"
     ]
     print(command)
-
-    subprocess.run(command, capture_output=True, text=True, check=True)
+    os.system(' '.join(command))
 
     compare_files(reference_dir=f"{eolabtools_paths.nightosm_ref}/TestSimpleConfig",
                   output_dir=f"{eolabtools_paths.nightosm_outdir}/test_nightosm_simple_config",

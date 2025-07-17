@@ -326,4 +326,5 @@ def main():
     settings = args | config
     settings["osm_tags"] = osm_tags
     # Make sure to check that config keys matches run() arguments
+    print(settings)
     run(**settings)
