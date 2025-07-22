@@ -778,9 +778,7 @@ def run(args, parser):
                   time_dissolve_geometries, time_polygonize_coded_raster, time_shadow_mask_execution)
 
 
-
-# Press the green button in the gutter to run the script.
-def main():
+def parser_return():
     parser = argparse.ArgumentParser(description="Generate a Sun Map based day, time and place")
     parser.add_argument("-dsm", "--digital_surface_model", type=str,
                         help="Path to the Digital Surface Model (DSM) or path to"
@@ -797,7 +795,13 @@ def main():
     parser.add_argument('-o', '--output_dir', default=os.getcwd(), help='Output directory path')
     parser.add_argument('-st', '--save_temp', action='store_true', help='Store processing times in CSV file')
     parser.add_argument('-sm', '--save_masks', action='store_true', help='Store hourly shadow masks')
+    return parser
 
+# Press the green button in the gutter to run the script.
+def main():
+    parser = parser_return()
     args = parser.parse_args()
+    print(args)
+    print(dict(args))
 
     run(args, parser)

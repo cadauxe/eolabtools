@@ -18,6 +18,7 @@ import yaml
 from osgeo import gdal
 from rasterio import mask
 from skimage.morphology import binary_closing
+f
 
 from .osm_utils import get_osm_raster
 from .shift import apply_shift, compute_displacement_grid, compute_shift

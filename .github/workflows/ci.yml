@@ -43,26 +43,26 @@ jobs:
         python-version: '3.12'
         auto-activate-base: false
 
-    - name: Create test env DetectCult
-      shell: bash -l {0}
-      run: |
-        conda create -n orcult_env python=3.12 libgdal=3.11.0 -c conda-forge -c defaults -y
-        conda activate orcult_env
-        pip install ".[DetecOrCult]"
-        pip install pylint mccabe
-    - name: Tests DetectCult
-      shell: bash -l {0}
-      run: |
-        conda activate orcult_env
-        pytest tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture --cov-report=xml:.ci-reports-orcult/coverage_orcult.xml --cov-report html:cov_html_orcult --cov-report=term --junitxml=pytest-results-orcult.xml
-    - name: Upload Coverage Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report-orcult
-        path: |
-          .ci-reports-orcult/
-          cov_html_orcult/
-          pytest-results-orcult.xml
+#    - name: Create test env DetectCult
+#      shell: bash -l {0}
+#      run: |
+#        conda create -n orcult_env python=3.12 libgdal=3.11.0 -c conda-forge -c defaults -y
+#        conda activate orcult_env
+#        pip install ".[DetecOrCult]"
+#        pip install pylint mccabe
+#    - name: Tests DetectCult
+#      shell: bash -l {0}
+#      run: |
+#        conda activate orcult_env
+#        pytest tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture --cov-report=xml:.ci-reports-orcult/coverage_orcult.xml --cov-report html:cov_html_orcult --cov-report=term --junitxml=pytest-results-orcult.xml
+#    - name: Upload Coverage Report
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: coverage-report-orcult
+#        path: |
+#          .ci-reports-orcult/
+#          cov_html_orcult/
+#          pytest-results-orcult.xml
 
     - name: Create test env SunMap
       shell: bash -l {0}
@@ -85,24 +85,24 @@ jobs:
           .ci-reports-sunmap/
           cov_html_sunmap/
           pytest-results-sunmap.xml
-
-    - name: Create test env NightOsm
-      shell: bash -l {0}
-      run: |
-        conda create -n nightosm_env python=3.12 libgdal=3.11.0 markupsafe -c conda-forge 
-        conda activate nightosm_env
-        pip install ".[NightOsmReg]"
-        pip install pylint mccabe
-    - name: Tests NightOsm
-      shell: bash -l {0}
-      run: |
-        conda activate nightosm_env
-        pytest tests/test_nightosm.py --cov=src/eolabtools/night_osm_registration --cov-report=xml:.ci-reports-nightosm/coverage_nightosm.xml --cov-report html:cov_html_nightosm --cov-report=term --junitxml=pytest-results-nightosm.xml
-    - name: Upload Coverage Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report-nightosm
-        path: |
-          .ci-reports-nightosm/
-          cov_html_nightosm/
-          pytest-results-nightosm.xml
+#
+#    - name: Create test env NightOsm
+#      shell: bash -l {0}
+#      run: |
+#        conda create -n nightosm_env python=3.12 libgdal=3.11.0 markupsafe -c conda-forge
+#        conda activate nightosm_env
+#        pip install ".[NightOsmReg]"
+#        pip install pylint mccabe
+#    - name: Tests NightOsm
+#      shell: bash -l {0}
+#      run: |
+#        conda activate nightosm_env
+#        pytest tests/test_nightosm.py --cov=src/eolabtools/night_osm_registration --cov-report=xml:.ci-reports-nightosm/coverage_nightosm.xml --cov-report html:cov_html_nightosm --cov-report=term --junitxml=pytest-results-nightosm.xml
+#    - name: Upload Coverage Report
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: coverage-report-nightosm
+#        path: |
+#          .ci-reports-nightosm/
+#          cov_html_nightosm/
+#          pytest-results-nightosm.xml

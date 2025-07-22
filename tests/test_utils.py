@@ -11,6 +11,21 @@ import filecmp
 import fiona
 import pandas as pd
 
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class SunMapConfig:
+    digital_surface_model: str
+    tiles_file: str
+    date: List[str]
+    time: List[str]
+    occ_changes: int
+    nb_cores: int
+    output_dir: str
+    save_temp: bool
+    save_masks: bool
+
 def clear_outdir(dir_path):
     for item in os.listdir(dir_path):
         full_path = os.path.join(dir_path, item)
