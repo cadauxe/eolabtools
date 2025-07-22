@@ -76,7 +76,7 @@ jobs:
       shell: bash -l {0}
       run: |
         conda activate sunmap_env
-        pytest tests/test_sunmap.py --cov=sun_map_generation --cov-report=xml:.ci-reports-sunmap/coverage_sunmap.xml --cov-report html:cov_html_sunmap --cov-report=term --junitxml=pytest-results-sunmap.xml
+        pytest tests/test_sunmap.py --cov=src/eolabtools/sun_map_generation --cov-report=xml:.ci-reports-sunmap/coverage_sunmap.xml --cov-report html:cov_html_sunmap --cov-report=term --junitxml=pytest-results-sunmap.xml
     - name: Upload Coverage Report
       uses: actions/upload-artifact@v4
       with:
