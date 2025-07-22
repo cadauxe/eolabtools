@@ -801,7 +801,5 @@ def parser_return():
 def main():
     parser = parser_return()
     args = parser.parse_args()
-    print(args)
-    print(dict(args))
 
     run(args, parser)

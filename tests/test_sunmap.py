@@ -36,7 +36,7 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         time=['08:00', '17:00', '120'],
         occ_changes=3,
         nb_cores=32,
-        output_dir=f'{eolabtools_paths.sunmap_datadir}/test_1tile_low_res_lst/',
+        output_dir=f'{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst/',
         save_temp=False,
         save_masks=False
     )
@@ -50,7 +50,7 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     os.remove(f"{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst")
     clear_outdir(f"{eolabtools_paths.sunmap_outdir}/test_1tile_low_res_lst/")
 
-#
+
 # @pytest.mark.ci
 # def test_sunmap_1tile_tif(eolabtools_paths: EOLabtoolsTestsPath) -> None:
 #     """
