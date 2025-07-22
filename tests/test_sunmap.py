@@ -86,7 +86,7 @@ def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
         occ_changes=3,
         nb_cores=32,
         output_dir=f'{eolabtools_paths.sunmap_outdir}/test_2tiles_low_res/',
-        save_temp=False,
+        save_temp=True,
         save_masks=False
     )
     parser = parser_return()
