@@ -16,7 +16,6 @@ given as input. The tool will manage the shadow impact on adjacent tiles.
 
 
 .. figure:: _static/sunmap/sunmap_illustration.png
-   :alt:
    :width: 50.0%
    :align: center
 

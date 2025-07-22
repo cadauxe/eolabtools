@@ -4,7 +4,7 @@
 Installation
 ======================
 
-Each tools can be use in separate virtual environnements.
+Each tools can be use in separate virtual environments.
 The single tool installation is provided below and in each tool page.
 
 SunMapGeneration installation
