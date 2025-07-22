@@ -30,13 +30,13 @@ def test_sunmap_1tile_lst(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     # #
     # os.system(' '.join(command))
     args = SunMapConfig(
-        digital_surface_model='/home/ecadaux/Documents/work/eolabtools/eolabtools/tests/data/SunMapGen/test_data/test_1tile_low_res/listing_1tile.lst',
-        tiles_file='/home/ecadaux/Documents/work/eolabtools/eolabtools/tests/data/SunMapGen/test_data/test_1tile_low_res/1tile.shp',
+        digital_surface_model=f'{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/listing_1tile.lst',
+        tiles_file=f'{eolabtools_paths.sunmap_datadir}/test_1tile_low_res/1tile.shp',
         date=['2024-08-03', '2024-08-04', '1'],
         time=['08:00', '17:00', '120'],
         occ_changes=3,
         nb_cores=32,
-        output_dir='/home/ecadaux/Documents/work/eolabtools/eolabtools/tests/data/SunMapGen/test_out/test_1tile_low_res_lst/',
+        output_dir=f'{eolabtools_paths.sunmap_datadir}/test_1tile_low_res_lst/',
         save_temp=False,
         save_masks=False
     )
