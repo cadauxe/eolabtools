@@ -1,196 +1,117 @@
-==================================
-Contributing to Project Eolabtools
-==================================
-
-This document provides guidelines and information on how to contribute effectively to the project.
-
-Report Issues
-=============
-
-If you encounter any issues, bugs, or have feature requests, please report them through the project's issue tracker. Provide as much detail as possible to help us understand and reproduce the problem. Include:
-- A clear and descriptive title
-- Steps to reproduce the issue
-- Expected and actual results
-- Relevant screenshots or logs
-
-Contributing Workflow
-=====================
-
-To contribute to Project Eolabtools, follow these steps:
-
-1. **Fork the repository:**
-Create a personal fork of the repository on GitHub.
-
-2. **Clone your fork:**
-Clone your forked repository to your local machine:
-```bash
-git clone https://github.com/your-username/Eolabtools.git
-cd Eolabtools
-```
-
-3. **Create a new branch:**
-Create a new branch for your feature or bugfix:
-
-```bash
-git checkout -b feature-or-bugfix-name
-```
-
-4. **Make your changes:**
-Implement your changes in the new branch. Follow the coding guide and ensure your code meets the quality standards.
-
-
-5. **Run linting and tests:**
-Ensure your code passes Pylint checks and all tests:
-```bash
-pylint .
-pytest
-```
-
-6. **Commit your changes:**
-
-Use the hooks provided to check your code quality before committing as described below.
-
-Commit your changes with a descriptive commit message:
-
-```bash
-git add .
-git commit -m "Brief description of your changes"
-```
-
-7. **Push to your fork:**
-Push your branch to your forked repository:
-```bash
-git push origin feature-or-bugfix-name
-```
-
-8. **Create a Pull Request:**
-Open a pull request (PR) from your branch to the main repository. Provide a detailed description of your changes and the issue it addresses.
-
-
-Handling Issues in Your Workflow
-=================================
-1. Linking Commits to Issues
-
-Creating a Branch for the Issue
---------------------------------
-
-When you start working on a new issue, create a new branch with a descriptive name that includes the github issue number:
-
-```bash
-git checkout -b 42-fix-bug-in-module
-```
-
-This helps keep your work organized and makes it easy to track the changes related to a specific issue.
-
-Committing with Issue References
---------------------------------
-
-When committing changes related to an issue, include the issue number in your commit message. This practice helps in linking the commit to the issue automatically in platforms like GitHub and GitLab:
-
-```bash
-git commit -m "Fix bug in module X related to #42"
-```
-The commit will be automatically linked to the issue #42 in the issue tracker.
-
-Pushing the Branch
--------------------
-
-Push your branch to the remote repository:
-
-```bash
-git push origin 42-fix-bug-in-module
-```
-
-This allows others to review your work and ensures that the issue tracking is kept up to date.
-
-
-2. Closing Issues and creating a merge request
-
-Closing Issues
---------------
-
-If your commit resolves an issue, you can automatically close the issue by using keywords in your commit message:
-
-```bash
-git commit -m "Fix bug in module X, closes #42"
-```
-This will close the issue when the commit is merged into the main branch.
-
-Creating a Merge Request/ Pull Request
---------------------------------------
-
-When your work is complete, create a pull request (GitHub) from your branch to the main branch.
-In the description, reference the issue number again to ensure clarity:
-
-```markdown
-This merge request addresses issue #42 by fixing the bug in module X.
-```
-
-This practice ensures that your work is well-documented.
-
-
-Coding Guide
+Contributing
 ============
 
-Please adhere to the following coding guidelines to ensure consistency and quality across the codebase:
+Thanks for helping to build eolabtools!
 
-- **Follow PEP 8:** The project follows the PEP 8 style guide for Python code. Use Pylint to check your code for compliance.
-- **Use meaningful names:** Choose meaningful names for variables, functions, and classes.
-- **Write docstrings:** Provide clear and concise docstrings for all functions and classes.
-- **Keep functions small:** Aim to keep functions short and focused on a single task.
-- **Use type annotations:** Use type annotations to improve code readability and help with static analysis.
+Report issues or bugs
+~~~~~~~~~~~~~~~~~~~~~
 
-Pylint and Git Hooks
-====================
+If you encounter a bug, unexpected behavior, or see something that could be improved:
 
-To maintain code quality, we use Pylint and Git hooks. Pylint checks for errors, enforces coding standards, and helps identify code smells.
+* Open an issue on the GitHub Issues page,
+* Describe the problem clearly, with a minimal reproducible example if possible,
+* Indicate the version of Eolabtools, Python, and platform you’re using.
 
-Setting up Pylint
------------------
+Bug reports, feature suggestions, and usability feedback are all welcome.
 
-The project includes a `.pylintrc` file with the necessary configurations. Ensure Pylint is installed and set up to use this configuration file:
+Seek support or ask questions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-```bash
-pip install pylint
-```
+If you have questions about how to use Eolabtools:
 
-Git Hooks
----------
+* First, check the documentation,
+* If your question isn't answered there, post your question in the Issues with the label question.
 
-Git hooks are used to automate quality checks before commits and pushes. The hooks ensure that Pylint and tests are run automatically.
+We aim to respond as quickly as possible and encourage community help.
 
-Setup Hooks:
-~~~~~~~~~~~~
-To set up the Git hooks, run the following command in the project directory:
-```bash
-git config --local core.hooksPath .githooks/
-```
+Retrieve the code: forking and cloning the Repository
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pre-Commit Hook:
-~~~~~~~~~~~~~~~~
-The pre-commit hook runs Pylint on staged files of the project before allowing a commit. If any checks fail, the commit is aborted.
+Make a fork of the `eolabtools repository <https://github.com/CNES/eolabtools>`__ and clone
+the fork.
 
-Pre-Push Hook:
-~~~~~~~~~~~~~~
-The pre-push hook runs Pylint on the entire project and pytest before allowing a push. If any checks fail, the push is aborted.
+A documentation is available on GitHub to help platform users create a fork: `https://docs.github.com/fork-a-repo <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo>`__
 
-Merge Request Acceptance Process
-================================
+.. code-block:: none
 
-To ensure high quality and consistency in the codebase, follow these steps for getting your merge request accepted:
+   git clone https://github.com/<your-github-username>/eolabtools.git
+   cd eolabtools
 
-Review and Approval:
---------------------
-Your pull request will be reviewed by project maintainers. They may provide feedback or request changes.
+You may want to add ``https://github.com/CNES/eolabtools`` as an upstream remote
+repository.
 
-Address Feedback:
------------------
-Make the necessary changes based on the feedback and update your pull request.
+.. code-block:: none
 
-Automated Checks:
------------------
-Ensure all automated checks (linting, tests) pass. The pull request must pass all checks before it can be merged.
+   git remote add upstream https://github.com/CNES/eolabtools
 
-Final Review:
--------------
-After addressing feedback and passing all checks, the maintainers will perform a final review. If everything is satisfactory, your pull request will be merged.
+Building Eolabtools
+~~~~~~~~~~~~~~~~~~~
+
+Eolabtools is a pure-python repository and each tools can be use in separate virtual environnements. Development installation should
+be as simple as cloning the repository and running the following in the cloned directory:
+
+**For SunMapGeneration :**
+
+.. code-block:: console
+
+    conda create -n sunmap_env python=3.12 libgdal=3.5.0 -c conda-forge -c defaults -y
+    conda activate sunmap_env
+    pip install georastertools --no-binary rasterio
+    pip install ".[SunMapGen]" --force-reinstall --no-cache-dir
+
+**For NightOsmRegistration :**
+
+.. code-block:: console
+
+    conda create -n nightosm_env python=3.12 libgdal=3.11.0 markupsafe -c conda-forge
+    conda activate nightosm_env
+    pip install ".[NightOsmReg]"
+
+**For DetectionOrientationCulture :**
+
+.. code-block:: console
+
+    conda create -n orcult_env python=3.12 libgdal=3.11.0 -c conda-forge -c defaults -y
+    conda activate orcult_env
+    pip install -e ".[DetecOrCult]"
+
+If you have any trouble, please open an issue on the
+`eolabtools issue tracker <https://github.com/CNES/eolabtools/issues>`_.
+
+Running tests
+~~~~~~~~~~~~~
+
+Eolabtools uses `pytest <https://docs.pytest.org/en/latest/>`_ for testing. You
+can run tests from the main eolabtools directory for the tool you installed as follows:
+
+.. code-block:: none
+
+    pytest tests/test_sunmap.py #For SunMapGeneration
+    pytest tests/test_nightosm.py #For NightOsmRegistration
+    pytest tests/test_orcult.py #For DetectionOrientationCulture
+
+Coverage
+~~~~~~~~
+
+It is possible to check code coverage
+
+.. code-block:: none
+
+    pytest tests/test_sunmap.py --cov=src/eolabtools/sun_map_generation --cov-report=html #For SunMapGeneration
+    pytest tests/test_nightosm.py --cov=src/eolabtools/night_osm_registration --cov-report=html #For NightOsmRegistration
+    pytest tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture --cov-report=html #For DetectionOrientationCulture
+
+You can still use all the usual pytest command-line options in addition to those.
+
+Documentation
+~~~~~~~~~~~~~
+
+We use `numpydoc <http://numpydoc.readthedocs.io/en/latest/format.html>`_ for our docstrings.
+
+Building the docs is possible with
+
+.. code-block:: none
+
+   $ conda create -n eolabtools_doc python=3.12 sphinx_rtd_theme sphinxcontrib-bibtex
+   $ conda activate eolabtools_doc
+   $ sphinx-build -b html docs/source docs/build
