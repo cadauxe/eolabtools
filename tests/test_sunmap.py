@@ -79,7 +79,7 @@ def test_sunmap_2tiles(eolabtools_paths: EOLabtoolsTestsPath) -> None:
     create_outdir(f"{eolabtools_paths.sunmap_outdir}/test_2tiles_low_res/")
 
     args = SunMapConfig(
-        digital_surface_model=f'{eolabtools_paths.sunmap_datadir}/test_2tile_low_res/listing_2tiles.lst',
+        digital_surface_model=f'{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/listing_2tiles.lst',
         tiles_file=f'{eolabtools_paths.sunmap_datadir}/test_2tiles_low_res/2tiles.shp',
         date=['2024-08-31', '2024-08-31', '1'],
         time=['08:00', '9:00', '60'],
