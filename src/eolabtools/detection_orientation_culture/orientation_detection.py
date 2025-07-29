@@ -1201,54 +1201,52 @@ def save_stats_csv(RPG, args, data, data_norm, header, orientations):
 
 def save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches,
              out_segments):
-    if args.save_fld:
-        kept_lines = gpd.read_file(out_segments)
-        kept_lines = kept_lines.set_crs('epsg:2154')
-        _logger.info(f"Saving {len(kept_lines)} segments to {out_segments}")
-        kept_lines = gpd.geodataframe.GeoDataFrame(
-            pd.concat([kept_lines, on_border_lines]), crs=crs)
-        kept_lines.to_crs(crs, inplace=True)
-        kept_lines.to_file(out_segments)
+    kept_lines = gpd.read_file(out_segments)
+    kept_lines = kept_lines.set_crs('epsg:2154')
+    _logger.info(f"Saving {len(kept_lines)} segments to {out_segments}")
+    kept_lines = gpd.geodataframe.GeoDataFrame(
+        pd.concat([kept_lines, on_border_lines]), crs=crs)
+    kept_lines.to_crs(crs, inplace=True)
+    kept_lines.to_file(out_segments)
 
-        rpg_patches = gpd.read_file(out_patches)
-        rpg_patches = rpg_patches.set_crs('epsg:2154')
-        _logger.info(f"Saving {len(rpg_patches)} rpg patches to {out_patches}")
-        rpg_patches = gpd.geodataframe.GeoDataFrame(
-            pd.concat([rpg_patches, on_border_rpg_patches]), crs=crs)
-        rpg_patches.to_crs(crs, inplace=True)
-        rpg_patches.to_file(out_patches)
+    rpg_patches = gpd.read_file(out_patches)
+    rpg_patches = rpg_patches.set_crs('epsg:2154')
+    _logger.info(f"Saving {len(rpg_patches)} rpg patches to {out_patches}")
+    rpg_patches = gpd.geodataframe.GeoDataFrame(
+        pd.concat([rpg_patches, on_border_rpg_patches]), crs=crs)
+    rpg_patches.to_crs(crs, inplace=True)
+    rpg_patches.to_file(out_patches)
 
-        bbox = gpd.read_file(out_hulls)
-        bbox = bbox.set_crs('epsg:2154')
-        _logger.info(f"Saving {len(orientations)} convex hulls to {out_hulls}")
-        bbox = gpd.geodataframe.GeoDataFrame(
-            pd.concat([bbox, on_border_bbox]), crs=crs)
-        bbox.to_crs(crs, inplace=True)
-        bbox.to_file(out_hulls)
+    bbox = gpd.read_file(out_hulls)
+    bbox = bbox.set_crs('epsg:2154')
+    _logger.info(f"Saving {len(orientations)} convex hulls to {out_hulls}")
+    bbox = gpd.geodataframe.GeoDataFrame(
+        pd.concat([bbox, on_border_bbox]), crs=crs)
+    bbox.to_crs(crs, inplace=True)
+    bbox.to_file(out_hulls)
 
-        del kept_lines, rpg_patches, bbox
+    del kept_lines, rpg_patches, bbox
 
 def orientation_compute_save_fld(args, crs, list_gdf):
-    if args.save_fld:
-        kept_lines = gpd.geodataframe.GeoDataFrame(
-            pd.concat([r[2] for r in list_gdf]), crs=crs)
-        kept_lines.crs = crs
-        out_segments = os.path.join(args.output_dir, "kept_lines.shp")
-        kept_lines.to_file(out_segments)
+    kept_lines = gpd.geodataframe.GeoDataFrame(
+        pd.concat([r[2] for r in list_gdf]), crs=crs)
+    kept_lines.crs = crs
+    out_segments = os.path.join(args.output_dir, "kept_lines.shp")
+    kept_lines.to_file(out_segments)
 
-        rpg_patches = gpd.geodataframe.GeoDataFrame(
-            pd.concat([r[3] for r in list_gdf]), crs=crs)
-        rpg_patches.crs = crs
-        out_patches = os.path.join(args.output_dir, "rpg_patches.shp")
-        rpg_patches.to_file(out_patches)
+    rpg_patches = gpd.geodataframe.GeoDataFrame(
+        pd.concat([r[3] for r in list_gdf]), crs=crs)
+    rpg_patches.crs = crs
+    out_patches = os.path.join(args.output_dir, "rpg_patches.shp")
+    rpg_patches.to_file(out_patches)
 
-        bbox = gpd.geodataframe.GeoDataFrame(
-            pd.concat([r[5] for r in list_gdf]), crs=crs)
-        bbox.crs = crs
-        out_hulls = os.path.join(args.output_dir, "convex_hulls.shp")
-        bbox.to_file(out_hulls)
+    bbox = gpd.geodataframe.GeoDataFrame(
+        pd.concat([r[5] for r in list_gdf]), crs=crs)
+    bbox.crs = crs
+    out_hulls = os.path.join(args.output_dir, "convex_hulls.shp")
+    bbox.to_file(out_hulls)
 
-        del kept_lines, bbox
+    del kept_lines, bbox
     return out_hulls, out_patches, out_segments
 
 
@@ -1442,8 +1440,8 @@ def main():
                                                                       time_calculate_orientation, time_fld,
                                                                       time_inter_mask_open, time_orientation_worker,
                                                                       time_slope_aspect)
-
-    out_hulls, out_patches, out_segments = orientation_compute_save_fld(args, crs, list_gdf)
+    if args.save_fld:
+        out_hulls, out_patches, out_segments = orientation_compute_save_fld(args, crs, list_gdf)
 
     del list_gdf
 
@@ -1458,8 +1456,8 @@ def main():
     len_orientation, orientations = save_centroids(crs, on_border_centroids, on_border_orient, out_centroids,
                                                    out_orient)
 
-    save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches,
-             out_segments)
+    if args.save_fld:
+        save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches, out_segments)
 
     time_main = time.process_time() - start_main
 
