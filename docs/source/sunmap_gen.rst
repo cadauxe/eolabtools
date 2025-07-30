@@ -48,6 +48,7 @@ To install SunMapGeneration, please launch the following commands :
     pip install georastertools --no-binary rasterio
     pip install eolabtools[SunMapGen] --force-reinstall --no-cache-dir
 
+Please ensure that you use the appropriate GCC version corresponding to the GDAL version required by the tool.
 
 Code file contained in the directory
 ===============================

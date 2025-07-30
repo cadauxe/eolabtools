@@ -1440,10 +1440,6 @@ def main():
                                                                       time_calculate_orientation, time_fld,
                                                                       time_inter_mask_open, time_orientation_worker,
                                                                       time_slope_aspect)
-    if args.save_fld:
-        out_hulls, out_patches, out_segments = orientation_compute_save_fld(args, crs, list_gdf)
-
-    del list_gdf
 
     _logger.info("========================== HANDLING ON BORDER PATCH PLOTS ==========================")
 
@@ -1457,7 +1453,10 @@ def main():
                                                    out_orient)
 
     if args.save_fld:
+        out_hulls, out_patches, out_segments = orientation_compute_save_fld(args, crs, list_gdf)
         save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches, out_segments)
+
+    del list_gdf
 
     time_main = time.process_time() - start_main
 

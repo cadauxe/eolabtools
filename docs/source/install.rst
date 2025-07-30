@@ -6,6 +6,7 @@ Installation
 
 Each tools can be use in separate virtual environments.
 The single tool installation is provided below and in each tool page.
+Please ensure that you use the appropriate GCC version corresponding to the GDAL version required by the tool.
 
 SunMapGeneration installation
 ==============================

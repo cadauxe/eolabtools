@@ -24,6 +24,8 @@ To install DetectionOrientationCulture, please launch the following commands :
     conda activate orcult_env
     pip install eolabtools[DetecOrCult]
 
+Please ensure that you use the appropriate GCC version corresponding to the GDAL version required by the tool.
+
 Generate the data used to compute orientations
 ===============================
 

@@ -17,6 +17,7 @@ To install NightOsmRegistration, please launch the following commands :
     conda activate nightosm_env
     pip install eolabtools[NightOsmReg]
 
+Please ensure that you use the appropriate GCC version corresponding to the GDAL version required by the tool.
 
 Steps of the algorithm
 ======================
