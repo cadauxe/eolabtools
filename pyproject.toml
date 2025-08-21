@@ -9,7 +9,7 @@ version = "1.0.1"
 requires-python = ">=3.8.13"
 dependencies = []
 readme = "README.md"
-license = { file = "LICENSE.txt" }
+license = { file = "LICENSE.rst" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: GIS",

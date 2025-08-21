@@ -1,8 +1,10 @@
-from conftest import EOLabtoolsTestsPath
-from src.eolabtools.detection_orientation_culture import detection_orientation_culture
-from test_utils import compare_files, clear_outdir, create_outdir
+from tests.conftest import EOLabtoolsTestsPath
+from src.eolabtools.detection_orientation_culture.orientation_detection import detection_orientation_culture
+from tests.test_utils import compare_files, clear_outdir, create_outdir
 import pytest
 import os
+
+
 
 # Ensure coverage starts in subprocesses
 os.environ['COVERAGE_PROCESS_START'] = '.coveragerc'
