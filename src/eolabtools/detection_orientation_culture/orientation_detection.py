@@ -1167,7 +1167,7 @@ def get_rpg_patches(
 
 
 
-def save_stats_csv(RPG, args, data, data_norm, header, orientations):
+def save_stats_csv(RPG, output_dir, data, data_norm, header, orientations):
     codes = []
     group_ = []
     rpg = []
@@ -1189,7 +1189,7 @@ def save_stats_csv(RPG, args, data, data_norm, header, orientations):
     df['% parcelles orientées'] = round(df['parcelles orientees'] / df['len RPG'] * 100, 2).astype(str) + ' %'
     df['% parcelles multiples'] = round(df['parcelles multiples'] / df['parcelles orientees'] * 100, 2).astype(
         str) + ' %'
-    out_stats = os.path.join(args.output_dir, "statistics.csv")
+    out_stats = os.path.join(output_dir, "statistics.csv")
     df.to_csv(out_stats, index=False)
     format_line = "{:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {}"
     _logger.info("================================= PROCESSING TIME ==================================")
@@ -1198,8 +1198,7 @@ def save_stats_csv(RPG, args, data, data_norm, header, orientations):
     _logger.info(format_line.format("Per process", *data_norm))
 
 
-
-def save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches,
+def save_fld_process(crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches,
              out_segments):
     kept_lines = gpd.read_file(out_segments)
     kept_lines = kept_lines.set_crs('epsg:2154')
@@ -1227,38 +1226,36 @@ def save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, 
 
     del kept_lines, rpg_patches, bbox
 
-def orientation_compute_save_fld(args, crs, list_gdf):
+def orientation_compute_save_fld(output_dir, crs, list_gdf):
     kept_lines = gpd.geodataframe.GeoDataFrame(
         pd.concat([r[2] for r in list_gdf]), crs=crs)
     kept_lines.crs = crs
-    out_segments = os.path.join(args.output_dir, "kept_lines.shp")
+    out_segments = os.path.join(output_dir, "kept_lines.shp")
     kept_lines.to_file(out_segments)
 
     rpg_patches = gpd.geodataframe.GeoDataFrame(
         pd.concat([r[3] for r in list_gdf]), crs=crs)
     rpg_patches.crs = crs
-    out_patches = os.path.join(args.output_dir, "rpg_patches.shp")
+    out_patches = os.path.join(output_dir, "rpg_patches.shp")
     rpg_patches.to_file(out_patches)
 
     bbox = gpd.geodataframe.GeoDataFrame(
         pd.concat([r[5] for r in list_gdf]), crs=crs)
     bbox.crs = crs
-    out_hulls = os.path.join(args.output_dir, "convex_hulls.shp")
+    out_hulls = os.path.join(output_dir, "convex_hulls.shp")
     bbox.to_file(out_hulls)
 
     del kept_lines, bbox
     return out_hulls, out_patches, out_segments
 
 
-
-def border_patch_process(RPG, args, img_dataset, time_calculate_orientation, time_fld, time_inter_mask_open,
-                         time_orientation_worker, time_slope_aspect, time_split):
+def border_patch_process(nb_cores, patch_size, RPG, img_dataset, time_split):
     list_on_border = get_rpg_patches(
         img_dataset,
         RPG,
         time_split,
-        args.nb_cores,
-        patch_size=args.patch_size,
+        nb_cores,
+        patch_size=patch_size,
         mode="border"
     )
     on_border_orient = gpd.geodataframe.GeoDataFrame([])
@@ -1266,26 +1263,7 @@ def border_patch_process(RPG, args, img_dataset, time_calculate_orientation, tim
     on_border_lines = gpd.geodataframe.GeoDataFrame([])
     on_border_rpg_patches = gpd.geodataframe.GeoDataFrame([])
     on_border_bbox = gpd.geodataframe.GeoDataFrame([])
-    if list_on_border:
-        on_border_orient, on_border_centroids, on_border_lines, on_border_rpg_patches, on_border_intersections, on_border_bbox = handle_on_patch_border_crops(
-            RPG,
-            list_on_border,
-            args.area_min,
-            args.slope,
-            args.aspect,
-            args.save_fld,
-            args.normalize,
-            time_orientation_worker,
-            time_calculate_orientation,
-            time_fld,
-            time_inter_mask_open,
-            time_slope_aspect,
-            args.nb_cores,
-            args.verbose
-        )
-
-    del list_on_border
-    return on_border_bbox, on_border_centroids, on_border_lines, on_border_orient, on_border_rpg_patches
+    return list_on_border, on_border_bbox, on_border_centroids, on_border_lines, on_border_orient, on_border_rpg_patches
 
 
 def save_centroids(crs, on_border_centroids, on_border_orient, out_centroids, out_orient):
@@ -1308,59 +1286,35 @@ def save_centroids(crs, on_border_centroids, on_border_orient, out_centroids, ou
     return len_orientation, orientations
 
 
-def orientation_compute_process(args, crs, img_dataset, increment, list_rpg_patches, parcel_ids_processed,
-                                time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker,
-                                time_slope_aspect):
-    with concurrent.futures.ProcessPoolExecutor(max_workers=args.nb_cores) as executor:
-        list_gdf = list(executor.map(
-            partial(orientation_worker,
-                    normalize=args.normalize,
-                    parcel_ids_processed=parcel_ids_processed,
-                    slope=args.slope,
-                    aspect=args.aspect,
-                    area_min=args.area_min,
-                    increment=increment,
-                    min_nline=args.min_nb_line_per_parcel,
-                    min_len_line=args.min_len_line,
-                    time_inter_mask_open=time_inter_mask_open,
-                    time_slope_aspect=time_slope_aspect,
-                    time_fld=time_fld,
-                    time_orientation_worker=time_orientation_worker,
-                    time_calculate_orientation=time_calculate_orientation,
-                    save_fld=args.save_fld,
-                    verbose=args.verbose),
-            list_rpg_patches,
-            chunksize=max([1, len(img_dataset) // args.nb_cores])
-        ))
-    del list_rpg_patches
+def orientation_compute_process(crs, list_gdf, output_dir):
     start_concat = time.process_time()
     orientations = gpd.geodataframe.GeoDataFrame(
         pd.concat([r[0] for r in list_gdf]), crs=crs)
     orientations.crs = crs
     orientations.to_crs(crs, inplace=True)
-    out_orient = os.path.join(args.output_dir, "orientations.shp")
+    out_orient = os.path.join(output_dir, "orientations.shp")
     orientations.to_file(out_orient)
     del orientations
     centroids = gpd.geodataframe.GeoDataFrame(
         pd.concat([r[1] for r in list_gdf]), crs=crs)
     centroids.crs = crs
-    out_centroids = os.path.join(args.output_dir, "centroids.shp")
+    out_centroids = os.path.join(output_dir, "centroids.shp")
     centroids.to_file(out_centroids)
     del centroids
-    return list_gdf, out_centroids, out_orient
+    return out_centroids, out_orient
 
-def reading_input(args):
+def reading_input(img : str, rpg : str, nb_cores : int, patch_size : int):
     start_main = time.process_time()
     start = datetime.now()
     # Open rpg shapefile
     _logger.info("Reading RPG shapefile...")
-    RPG = gpd.read_file(args.rpg)
+    RPG = gpd.read_file(rpg)
     _logger.info("done in {:.3} seconds".format(time.process_time() - start_main))
     crs_rpg = RPG.crs
     _logger.info(f"CRS RPG : {crs_rpg}")
     crs = {"init": "epsg:2154"}
-    img_dataset = sorted(glob.glob(args.img + "/*." + args.type)
-                         ) if os.path.isdir(args.img) else args.img
+    img_dataset = sorted(glob.glob(img + "/*." + type)
+                         ) if os.path.isdir(img) else img
     _logger.info(f"Image dataset size : {len(img_dataset)}")
     manager = Manager()
     time_split = manager.Value("time_split", 0.)
@@ -1378,13 +1332,16 @@ def reading_input(args):
         img_dataset,
         RPG,
         time_split,
-        args.nb_cores,
-        patch_size=args.patch_size
+        nb_cores,
+        patch_size=patch_size
     )
     return RPG, crs, img_dataset, increment, len_RPG, list_rpg_patches, parcel_ids_processed, start, start_main, time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker, time_slope_aspect, time_split
 
 
-def main():
+def getarguments():
+    """
+    Parse command line arguments.
+    """
     parser = argparse.ArgumentParser(
         description='Detection of crop orientation on BDORTHO and PHR images')
     parser.add_argument('-img', '--img', metavar='[IMAGE]', help='Image path or directory containing the images',
@@ -1410,51 +1367,92 @@ def main():
 
     parser.print_help()
     args = parser.parse_args()
+    return vars(args)
 
+
+def detection_orientation_culture(img: str, rpg: str, output_dir: str, slope: str, aspect: str, nb_cores: int,
+                                  type: str, normalize: bool, save_fld: bool, verbose: bool, patch_size: int,
+                                  area_min: float, min_nb_line_per_parcel: int, min_len_line: int):
     # logging config
     logformat = "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
     logging.basicConfig(
-        level=logging.INFO if args.verbose else logging.WARNING,  # Only show INFO if verbose=True
+        level=logging.INFO if verbose else logging.WARNING,  # Only show INFO if verbose=True
         stream=sys.stdout,
         format=logformat,
         datefmt="%Y-%m-%d %H:%M:%S"
     )
     logging.getLogger("fiona").setLevel(logging.ERROR)
 
-    # Log params
-    args_dict = vars(args)
+
     _logger.info("==================================== PARAMETERS ====================================")
-    for key in args_dict:
-        _logger.info(f"{key}: {args_dict[key]}")
+    for key, value in locals().items():
+        _logger.info(f"{key}: {value}")
     _logger.info("================================== READING INPUTS ==================================")
 
     RPG, crs, img_dataset, increment, len_RPG, list_rpg_patches, parcel_ids_processed, start, start_main, time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker, time_slope_aspect, time_split = reading_input(
-        args)
+        img, rpg, nb_cores, patch_size)
 
     _logger.info(f"Patches list size : {len(list_rpg_patches)}")
 
     _logger.info("============================== ORIENTATION CALCULATION =============================")
 
-    list_gdf, out_centroids, out_orient = orientation_compute_process(args, crs, img_dataset, increment,
-                                                                      list_rpg_patches, parcel_ids_processed,
-                                                                      time_calculate_orientation, time_fld,
-                                                                      time_inter_mask_open, time_orientation_worker,
-                                                                      time_slope_aspect)
+    with concurrent.futures.ProcessPoolExecutor(max_workers=nb_cores) as executor:
+        list_gdf = list(executor.map(
+            partial(orientation_worker,
+                    normalize=normalize,
+                    parcel_ids_processed=parcel_ids_processed,
+                    slope=slope,
+                    aspect=aspect,
+                    area_min=area_min,
+                    increment=increment,
+                    min_nline=min_nb_line_per_parcel,
+                    min_len_line=min_len_line,
+                    time_inter_mask_open=time_inter_mask_open,
+                    time_slope_aspect=time_slope_aspect,
+                    time_fld=time_fld,
+                    time_orientation_worker=time_orientation_worker,
+                    time_calculate_orientation=time_calculate_orientation,
+                    save_fld=save_fld,
+                    verbose=verbose),
+            list_rpg_patches,
+            chunksize=max([1, len(img_dataset) // nb_cores])
+        ))
+    del list_rpg_patches
+
+    out_centroids, out_orient = orientation_compute_process(crs, list_gdf, output_dir)
 
     _logger.info("========================== HANDLING ON BORDER PATCH PLOTS ==========================")
 
-    on_border_bbox, on_border_centroids, on_border_lines, on_border_orient, on_border_rpg_patches = border_patch_process(
-        RPG, args, img_dataset, time_calculate_orientation, time_fld, time_inter_mask_open, time_orientation_worker,
-        time_slope_aspect, time_split)
+    list_on_border, on_border_bbox, on_border_centroids, on_border_lines, on_border_orient, on_border_rpg_patches = border_patch_process(nb_cores, patch_size, RPG, img_dataset, time_split)
+
+    if list_on_border:
+        on_border_orient, on_border_centroids, on_border_lines, on_border_rpg_patches, on_border_intersections, on_border_bbox = handle_on_patch_border_crops(
+            RPG,
+            list_on_border,
+            area_min,
+            slope,
+            aspect,
+            save_fld,
+            normalize,
+            time_orientation_worker,
+            time_calculate_orientation,
+            time_fld,
+            time_inter_mask_open,
+            time_slope_aspect,
+            nb_cores,
+            verbose
+        )
+
+    del list_on_border
 
     _logger.info("================================== SAVING RESULTS ==================================")
 
     len_orientation, orientations = save_centroids(crs, on_border_centroids, on_border_orient, out_centroids,
                                                    out_orient)
 
-    if args.save_fld:
-        out_hulls, out_patches, out_segments = orientation_compute_save_fld(args, crs, list_gdf)
-        save_fld(args, crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches, out_segments)
+    if save_fld:
+        out_hulls, out_patches, out_segments = orientation_compute_save_fld(output_dir, crs, list_gdf)
+        save_fld_process(crs, on_border_bbox, on_border_lines, on_border_rpg_patches, orientations, out_hulls, out_patches, out_segments)
 
     del list_gdf
 
@@ -1471,12 +1469,12 @@ def main():
                     )
                 )
     data_norm = list(map(sec_to_hms,
-                         [time_main + time_orientation_worker.value / args.nb_cores,
+                         [time_main + time_orientation_worker.value / nb_cores,
                           time_main,
-                          time_orientation_worker.value / args.nb_cores,
-                          time_slope_aspect.value / args.nb_cores,
-                          time_fld.value / args.nb_cores,
-                          time_inter_mask_open.value / args.nb_cores]
+                          time_orientation_worker.value / nb_cores,
+                          time_slope_aspect.value / nb_cores,
+                          time_fld.value / nb_cores,
+                          time_inter_mask_open.value / nb_cores]
                          )
                      )
     data += [len_orientation, len_RPG,
@@ -1485,18 +1483,26 @@ def main():
               "calculate_orientation", "num_orientations", "RPG_length", "ratio"]
 
     # Save time logs to csv
-    out_csv = os.path.join(args.output_dir, "computation_time.csv")
+    out_csv = os.path.join(output_dir, "computation_time.csv")
     with open(out_csv, "w", newline="") as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow(header)
         csv_writer.writerow(data)
 
     # Save statistics to csv
-    save_stats_csv(RPG, args, data, data_norm, header, orientations)
+    save_stats_csv(RPG, output_dir, data, data_norm, header, orientations)
 
     end = datetime.now() - start
     _logger.info(f'OVERALL TIME = {end}')
 
+
+def main():
+    """
+    Main function to run the orientation detection computation.
+    It parses the command line arguments and calls the detection_orientation_culture function.
+    """
+    args = getarguments()
+    detection_orientation_culture(**args)
 
 if __name__ == "__main__":
     sys.exit(main())

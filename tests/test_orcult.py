@@ -1,5 +1,5 @@
 from conftest import EOLabtoolsTestsPath
-import subprocess
+from src.eolabtools.detection_orientation_culture import detection_orientation_culture
 from test_utils import compare_files, clear_outdir, create_outdir
 import pytest
 import os
@@ -14,23 +14,22 @@ def test_plot_orientation_bd_ortho1(eolabtools_paths: EOLabtoolsTestsPath) -> No
     """
     create_outdir(f"{eolabtools_paths.plotor_outdir}/2023_ortho1")
 
-    command = [
-        f"detection_orientation_culture",
-        f"--img", f"{eolabtools_paths.plotor_datadir}/LeHavre_BD_ortho1.jp2",
-        f"--type", f"jp2",
-        f"--rpg", f"{eolabtools_paths.plotor_datadir}/RPG/RPG_LeHavre_2023_ortho1.shp",
-        f"--output_dir", f"{eolabtools_paths.plotor_outdir}/2023_ortho1",
-        f"--nb_cores", f"4",
-        f"--patch_size", f"10000",
-        f"--slope", f"{eolabtools_paths.plotor_datadir}/RGE_ALTI_76_5m_SLOPE_crop_ortho1.tif",
-        f"--aspect", f"{eolabtools_paths.plotor_datadir}/RGE_ALTI_76_5m_ASPECT_crop_ortho1.tif",
-        f"--min_nb_line_per_parcel", f"20",
-        f"--min_len_line", "8",
-        f"--save_fld",
-        f"--verbose"
-    ]
-    print(" ".join(command))
-    os.system(' '.join(command))
+    detection_orientation_culture(
+        img=f"{eolabtools_paths.plotor_datadir}/LeHavre_BD_ortho1.jp2",
+        rpg=f"{eolabtools_paths.plotor_datadir}/RPG/RPG_LeHavre_2023_ortho1.shp",
+        output_dir=f"{eolabtools_paths.plotor_outdir}/2023_ortho1",
+        slope=f"{eolabtools_paths.plotor_datadir}/RGE_ALTI_76_5m_SLOPE_crop_ortho1.tif",
+        aspect=f"{eolabtools_paths.plotor_datadir}/RGE_ALTI_76_5m_ASPECT_crop_ortho1.tif",
+        nb_cores=4,
+        type="jp2",
+        normalize=False,
+        save_fld=True,
+        verbose=True,
+        patch_size=10000,
+        area_min=20000.,
+        min_nb_line_per_parcel=20,
+        min_len_line=8,
+    )
 
     compare_files(reference_dir = f"{eolabtools_paths.plotor_ref}/2023_ortho1",
                   output_dir = f"{eolabtools_paths.plotor_outdir}/2023_ortho1",
