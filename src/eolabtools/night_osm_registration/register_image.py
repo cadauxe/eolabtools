@@ -89,18 +89,52 @@ def nparray_to_csv(array: np.ndarray, path: Path):
     np.savetxt(path, array, fmt="%i", delimiter=",")
 
 
-def run(
+def getarguments():
+    """Main function with argument paser, for script entrypoint"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("infile", help="Path to input raster file to compute shift")
+    parser.add_argument(
+        "auxfiles",
+        nargs="*",
+        help="List of auxiliary image to apply shift",
+    )
+    parser.add_argument(
+        "-o", "--outdir", required=True, help="Path to output directory"
+    )
+    parser.add_argument("--config", required=True, help="Path to configuration file")
+    parser.add_argument(
+        "--osm-config", required=True, help="Path to OSM tags configuration file"
+    )
+    # Read arguments as dict
+    args = vars(parser.parse_args())
+
+    # Load configuration files as dict
+    with open(args["config"]) as f:
+        config = yaml.safe_load(f)
+    with open(args["osm_config"]) as f:
+        osm_tags = yaml.safe_load(f)
+
+    # Merge parsed args and config file in a new dict
+    del args["config"], args["osm_config"]
+    settings = args | config
+    settings["osm_tags"] = osm_tags
+    # Make sure to check that config keys matches run() arguments
+    print(settings)
+    return settings
+
+
+def night_osm_image_registration(
     infile: str,
     outdir: str,
-    osm_tags: str,
-    window_size: int,
-    max_shift: int,
-    subsampling: int,
+    osm_tags: dict,
+    window_size: int = None,
+    max_shift: int = None,
+    subsampling: int = None,
     osm_dataset: str = None,
     road_buffer_size: float = None,
     water_vector: str = None,
     roi_file: str = None,
-    radiance_threshold: int = 10,
+    radiance_threshold: float = 10,
     raster_bin_path: str = None,
     raster_osm_path: str = None,
     auxfiles: list[str] = None,
@@ -297,34 +331,12 @@ def crop_night_raster(infile, outdir, profile, raster_src, roi_file):
 
 
 def main():
-    """Main function with argument paser, for script entrypoint"""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("infile", help="Path to input raster file to compute shift")
-    parser.add_argument(
-        "auxfiles",
-        nargs="*",
-        help="List of auxiliary image to apply shift",
-    )
-    parser.add_argument(
-        "-o", "--outdir", required=True, help="Path to output directory"
-    )
-    parser.add_argument("--config", required=True, help="Path to configuration file")
-    parser.add_argument(
-        "--osm-config", required=True, help="Path to OSM tags configuration file"
-    )
-    # Read arguments as dict
-    args = vars(parser.parse_args())
+    """
+    Main function to run night image registration.
+    It parses the command line arguments and calls the night_osm_image_registration function.
+    """
+    args = getarguments()
+    night_osm_image_registration(**args)
 
-    # Load configuration files as dict
-    with open(args["config"]) as f:
-        config = yaml.safe_load(f)
-    with open(args["osm_config"]) as f:
-        osm_tags = yaml.safe_load(f)
-
-    # Merge parsed args and config file in a new dict
-    del args["config"], args["osm_config"]
-    settings = args | config
-    settings["osm_tags"] = osm_tags
-    # Make sure to check that config keys matches run() arguments
-    print(settings)
-    run(**settings)
+if __name__ == "__main__":
+    main()

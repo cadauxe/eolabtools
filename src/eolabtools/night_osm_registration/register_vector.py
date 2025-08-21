@@ -52,14 +52,14 @@ def shift_vector(vector: str, grid: str) -> gpd.GeoDataFrame:
     return gdf.set_geometry(gdf.geometry.apply(shift))
 
 
-def run(vector: str, grid: str, outdir: str, name: str):
+def night_osm_vector_registration(vector: str, grid: str, outdir: str, name: str):
     outdir = Path(outdir)
     gdf = shift_vector(vector, grid)
     out_file = str(outdir / (name + ".gpkg"))
     gdf.to_file(out_file)
 
 
-def main():
+def getarguments():
     """Main function with argument paser, for script entrypoint"""
     parser = argparse.ArgumentParser()
     parser.add_argument("vector", type=str, help="Path to the input vector file")
@@ -75,4 +75,15 @@ def main():
 
     # Manage FutureWarnings from proj
     warnings.simplefilter(action="ignore", category=FutureWarning)
-    run(**settings)
+    return settings
+
+def main():
+    """
+    Main function to run night vector registration.
+    It parses the command line arguments and calls the night_osm_vector_registration function.
+    """
+    args = getarguments()
+    night_osm_vector_registration(**args)
+
+if __name__ == "__main__":
+    main()
