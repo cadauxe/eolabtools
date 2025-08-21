@@ -71,7 +71,6 @@ jobs:
         conda activate sunmap_env
         pip install georastertools --no-binary rasterio
         pip install ".[SunMapGen]" --force-reinstall --no-cache-dir
-        pip install pylint mccabe
     - name: Tests SunMap
       shell: bash -l {0}
       run: |
@@ -92,7 +91,6 @@ jobs:
         conda create -n nightosm_env python=3.12 libgdal=3.11.0 markupsafe -c conda-forge 
         conda activate nightosm_env
         pip install ".[NightOsmReg]"
-        pip install pylint mccabe
     - name: Tests NightOsm
       shell: bash -l {0}
       run: |
