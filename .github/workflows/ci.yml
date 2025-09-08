@@ -1,0 +1,106 @@
+name: CI Workflow
+
+on:
+  pull_request:
+    branches:
+      - "main"
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.12"
+      - name: Create test env
+        shell: bash -l {0}
+        run: |
+          pip install pylint mccabe
+      - name: Run Pylint
+        shell: bash -l {0}
+        run: |
+          pylint --recursive=y --disable=all --fail-under=10 --enable=too-many-statements,too-many-nested-blocks src/eolabtools
+      - name: Run McCabe Complexity Check
+        shell: bash -l {0}
+        run: |
+          ./continuous_integration/scripts/check_mccabe_complexity.sh 25 src/eolabtools
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.12"
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        python-version: '3.12'
+        auto-activate-base: false
+
+    - name: Create test env DetectCult
+      shell: bash -l {0}
+      run: |
+        conda create -n orcult_env python=3.12 libgdal=3.11.0 -c conda-forge -y
+        conda activate orcult_env
+        pip install ".[DetecOrCult]"
+        pip install pylint mccabe
+    - name: Tests DetectCult
+      shell: bash -l {0}
+      run: |
+        conda activate orcult_env
+        python -m pytest tests/test_orcult.py --cov=src/eolabtools/detection_orientation_culture --cov-report=xml:.ci-reports-orcult/coverage_orcult.xml --cov-report html:cov_html_orcult --cov-report=term --junitxml=pytest-results-orcult.xml
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-orcult
+        path: |
+          .ci-reports-orcult/
+          cov_html_orcult/
+          pytest-results-orcult.xml
+
+    - name: Create test env SunMap
+      shell: bash -l {0}
+      run: |
+        conda create -n sunmap_env python=3.12 libgdal=3.5.0 -c conda-forge -y
+        conda activate sunmap_env
+        pip install georastertools --no-binary rasterio
+        pip install ".[SunMapGen]" --force-reinstall --no-cache-dir
+    - name: Tests SunMap
+      shell: bash -l {0}
+      run: |
+        conda activate sunmap_env
+        pytest tests/test_sunmap.py --cov=src/eolabtools/sun_map_generation --cov-report=xml:.ci-reports-sunmap/coverage_sunmap.xml --cov-report html:cov_html_sunmap --cov-report=term --junitxml=pytest-results-sunmap.xml
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-sunmap
+        path: |
+          .ci-reports-sunmap/
+          cov_html_sunmap/
+          pytest-results-sunmap.xml
+
+    - name: Create test env NightOsm
+      shell: bash -l {0}
+      run: |
+        conda create -n nightosm_env python=3.12 libgdal=3.11.0 markupsafe -c conda-forge 
+        conda activate nightosm_env
+        pip install ".[NightOsmReg]"
+    - name: Tests NightOsm
+      shell: bash -l {0}
+      run: |
+        conda activate nightosm_env
+        pytest tests/test_nightosm.py --cov=src/eolabtools/night_osm_registration --cov-report=xml:.ci-reports-nightosm/coverage_nightosm.xml --cov-report html:cov_html_nightosm --cov-report=term --junitxml=pytest-results-nightosm.xml
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-nightosm
+        path: |
+          .ci-reports-nightosm/
+          cov_html_nightosm/
+          pytest-results-nightosm.xml
